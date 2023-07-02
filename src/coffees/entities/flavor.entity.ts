@@ -10,7 +10,7 @@ export class Flavor {
   name: string;
 
   @ManyToMany(
-    type => Coffee,
+    (type) => Coffee,
     (coffee) => coffee.flavors, // what is "flavor" within the Coffee Entity
   )
   coffees: Coffee[];
