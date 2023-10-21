@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { TestingModule, Test } from '@nestjs/testing';
 import { CoffeesModule } from '../../src/coffees/coffees.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { beforeAll, describe, it, afterAll } from 'vitest';
 
 describe('[Feature] Coffees - /coffees', () => {
   let app: INestApplication;

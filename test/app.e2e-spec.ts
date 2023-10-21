@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { beforeAll, describe, it, afterAll } from 'vitest';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -15,6 +16,10 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
+  afterAll(async () => {
+    await app.close();
+  });
+
   it('/ (GET)', () => {
     // @ts-ignore
     return request(app.getHttpServer())
@@ -24,7 +29,4 @@ describe('AppController (e2e)', () => {
       .expect('Hello World!');
   });
 
-  afterAll(async () => {
-    await app.close();
-  });
 });

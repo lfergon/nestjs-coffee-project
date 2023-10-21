@@ -8,7 +8,9 @@ import { DatabaseModule } from './database/database.module';
 import * as process from 'process';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
-import * as Joi from '@hapi/joi';
+import Joi from '@hapi/joi';
+
+const DATABASE_TYPE = 'postgres';
 
 @Module({
   imports: [
@@ -20,7 +22,7 @@ import * as Joi from '@hapi/joi';
     }),
     CoffeesModule,
     TypeOrmModule.forRoot({
-      type: 'postgres', // type of our database
+      type: DATABASE_TYPE, // type of our database
       host: process.env.DATABASE_HOST, // database host
       port: Number(process.env.DATABASE_PORT), // database host
       username: process.env.DATABASE_USER, // username
