@@ -5,15 +5,16 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Flavor } from './entities/flavor.entity';
 import { Coffee } from './entities/coffee.entity';
 import { NotFoundException } from '@nestjs/common';
+import { describe, beforeEach, vi, it, expect, Mock } from 'vitest';
 
 type MockRepository<T extends ObjectLiteral = any> = Partial<
-  Record<keyof Repository<T>, jest.Mock>
+  Record<keyof Repository<T>, Mock>
 >;
 const createMockRepository = <
   T extends ObjectLiteral = any,
 >(): MockRepository<T> => ({
-  findOne: jest.fn(),
-  create: jest.fn(),
+  findOne: vi.fn(),
+  create: vi.fn(),
 });
 
 describe('CoffeesService', () => {

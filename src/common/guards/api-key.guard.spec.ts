@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { ExecutionContext } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiKeyGuard } from './api-key.guard';
+import { describe, beforeEach, vi, it, expect } from 'vitest';
 
 describe('ApiKeyGuard', () => {
   let apiKeyGuard: ApiKeyGuard;
@@ -18,7 +19,7 @@ describe('ApiKeyGuard', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn(),
+            get: vi.fn(),
           },
         },
       ],
@@ -34,12 +35,12 @@ describe('ApiKeyGuard', () => {
   });
 
   it('should return true if the route is marked as public', () => {
-    jest.spyOn(reflector, 'get').mockReturnValue(true);
+    vi.spyOn(reflector, 'get').mockReturnValue(true);
 
     const context = {
-      getHandler: jest.fn(),
+      getHandler: vi.fn(),
       switchToHttp: () => ({
-        getRequest: jest.fn(),
+        getRequest: vi.fn(),
       }),
     } as unknown as ExecutionContext;
 
@@ -47,15 +48,15 @@ describe('ApiKeyGuard', () => {
   });
 
   it('should return true if the API key in the request header matches the config', () => {
-    jest.spyOn(reflector, 'get').mockReturnValue(false);
-    jest.spyOn(configService, 'get').mockReturnValue('your-api-key');
+    vi.spyOn(reflector, 'get').mockReturnValue(false);
+    vi.spyOn(configService, 'get').mockReturnValue('your-api-key');
 
     const request = {
       header: (name: string) => (name === 'Authorization' ? 'your-api-key' : undefined),
     } as Request;
 
     const context = {
-      getHandler: jest.fn(),
+      getHandler: vi.fn(),
       switchToHttp: () => ({
         getRequest: () => request,
       }),
@@ -66,10 +67,10 @@ describe('ApiKeyGuard', () => {
 
   it('should return false if the API key in the request header does not match the config', () => {
     // Mocking the reflector to return false (not marked as public)
-    jest.spyOn(reflector, 'get').mockReturnValue(false);
+    vi.spyOn(reflector, 'get').mockReturnValue(false);
 
     // Mocking the ConfigService to return the expected API key
-    jest.spyOn(configService, 'get').mockReturnValue('your-api-key');
+    vi.spyOn(configService, 'get').mockReturnValue('your-api-key');
 
     const request = {
       header: (name: string) =>
@@ -77,7 +78,7 @@ describe('ApiKeyGuard', () => {
     } as Request;
 
     const context = {
-      getHandler: jest.fn(),
+      getHandler: vi.fn(),
       switchToHttp: () => ({
         getRequest: () => request,
       }),

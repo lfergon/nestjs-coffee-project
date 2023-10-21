@@ -6,15 +6,16 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Coffee } from './entities/coffee.entity';
 import { Flavor } from './entities/flavor.entity';
+import { describe, beforeEach, vi, it, expect, Mock } from 'vitest';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-const dataSourceMockFactory: () => MockType<DataSource> = jest.fn(() => ({
-  getCoffee: jest.fn(),
+const dataSourceMockFactory: () => MockType<DataSource> = vi.fn(() => ({
+  getCoffee: vi.fn(),
 }));
 
 type MockType<T> = {
-  [P in keyof T]?: jest.Mock;
+  [P in keyof T]?: Mock;
 };
 
 describe('CoffeesController', () => {
@@ -54,7 +55,7 @@ describe('CoffeesController', () => {
       const paginationQuery: PaginationQueryDto = { limit: 0, offset: 0 };
       const coffees: any[] = [];
 
-      jest.spyOn(coffeesService, 'findAll').mockResolvedValue(coffees);
+      vi.spyOn(coffeesService, 'findAll').mockResolvedValue(coffees);
 
       expect(await coffeesController.findAll(paginationQuery)).toBe(coffees);
     });
@@ -65,7 +66,7 @@ describe('CoffeesController', () => {
       const coffeeId = 1;
       const coffee: any = {};
 
-      jest.spyOn(coffeesService, 'findOne').mockResolvedValue(coffee);
+      vi.spyOn(coffeesService, 'findOne').mockResolvedValue(coffee);
 
       expect(await coffeesController.findOne(coffeeId)).toBe(coffee);
     });
