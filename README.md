@@ -32,6 +32,17 @@
 $ pnpm install
 ```
 
+## Docker
+Start containers in detached / background mode
+```shell
+$ docker-compose up -d
+```
+
+Stop containers
+```shell
+$ docker-compose down**
+```
+
 ## Running the app
 
 ```bash
@@ -58,6 +69,27 @@ $ pnpm run test:e2e
 $ pnpm run test:cov
 ```
 
+# Troubleshooting
+1. If error:
+```shell
+When running nestjs project I have the issue:
+ggregateError: 
+    at internalConnectMultiple (node:net:1114:18)
+    at afterConnectMultiple (node:net:1667:5)
+    at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17)
+Waiting for the debugger to disconnect..
+```
+
+## Solution:
+The error message, "AggregateError," typically indicates that there was an issue when connecting to a network resource. In a NestJS application, this could relate to issues with connecting to databases, external services, or other network-related operations.
+
+- Check Database Connection: if NestJS application is connecting to a database, ensure that the database server is up and running, and that the connection details (such as host, port, username, and password) are correctly configured in your application's configuration file, check your `.env` file.
+
+On this case run Docker compose to start database container:
+```shell
+$ docker-compose up -d
+```
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
@@ -71,3 +103,4 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](LICENSE).
+
