@@ -8,7 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import * as process from 'process';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
-import Joi from '@hapi/joi';
+import * as Joi from '@hapi/joi';
 
 const DATABASE_TYPE = 'postgres';
 
