@@ -69,11 +69,68 @@ $ pnpm run test:e2e
 $ pnpm run test:cov
 ```
 
+## Migration TypeORM example
+```javascript
+/* typeorm-cli.config.ts */
+export default new DataSource({
+    type: 'postgres',
+    host: 'localhost',
+    port: 5432,
+    username: 'postgres',
+    password: 'pass123',
+    database: 'postgres',
+    entities: [],
+    migrations: [],
+});
+```
+
+### Creating a TypeOrm Migration
+
+```shell
+$ npx typeorm migration:create src/migrations/CoffeeRefactor
+```
+
+#### CoffeeRefactor being the NAME we are giving "this" migration
+
+```typescript
+public async up(queryRunner: QueryRunner): Promise<any> {
+  await queryRunner.query(
+    `ALTER TABLE "coffee" RENAME COLUMN "name" TO "title"`,
+  );
+}
+
+public async down(queryRunner: QueryRunner): Promise<any> {
+  await queryRunner.query(
+    `ALTER TABLE "coffee" RENAME COLUMN "title" TO "name"`,
+  );
+}
+```
+
+#### RUNNING MIGRATIONS
+
+> 💡 IMPORTANT 💡
+You must BUILD your Nest project (so that everything is output to the `/dist/` folder,
+before a Migration can run, it needs compiled files.
+
+```shell
+// Compile project first
+$ npm run build
+
+// Run migration(s)
+$ npx typeorm migration:run -d dist/typeorm-cli.config
+
+// REVERT migration(s)
+$ npx typeorm migration:revert -d dist/typeorm-cli.config
+
+// Let TypeOrm generate migrations (for you)
+$ npx typeorm migration:generate src/migrations/SchemaSync -d dist/typeorm-cli.config
+```
+
 # Troubleshooting
-1. If error:
+1. If the error message is "aggregateError":
 ```shell
 When running nestjs project I have the issue:
-ggregateError: 
+aggregateError: 
     at internalConnectMultiple (node:net:1114:18)
     at afterConnectMultiple (node:net:1667:5)
     at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17)
