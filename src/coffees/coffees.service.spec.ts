@@ -7,12 +7,8 @@ import { Coffee } from './entities/coffee.entity';
 import { NotFoundException } from '@nestjs/common';
 import { describe, beforeEach, vi, it, expect, Mock } from 'vitest';
 
-type MockRepository<T extends ObjectLiteral = any> = Partial<
-  Record<keyof Repository<T>, Mock>
->;
-const createMockRepository = <
-  T extends ObjectLiteral = any,
->(): MockRepository<T> => ({
+type MockRepository<T extends ObjectLiteral = any> = Partial<Record<keyof Repository<T>, Mock>>;
+const createMockRepository = <T extends ObjectLiteral = any>(): MockRepository<T> => ({
   findOne: vi.fn(),
   create: vi.fn(),
 });

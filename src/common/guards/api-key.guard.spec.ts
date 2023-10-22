@@ -73,8 +73,7 @@ describe('ApiKeyGuard', () => {
     vi.spyOn(configService, 'get').mockReturnValue('your-api-key');
 
     const request = {
-      header: (name: string) =>
-        name === 'Authorization' ? 'wrong-api-key' : undefined,
+      header: (name: string) => (name === 'Authorization' ? 'wrong-api-key' : undefined),
     } as Request;
 
     const context = {

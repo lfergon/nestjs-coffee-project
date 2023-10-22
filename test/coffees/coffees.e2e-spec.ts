@@ -1,9 +1,9 @@
-import { HttpStatus, INestApplication } from "@nestjs/common";
+import { HttpStatus, INestApplication } from '@nestjs/common';
 import { TestingModule, Test } from '@nestjs/testing';
 import { CoffeesModule } from '../../src/coffees/coffees.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { beforeAll, describe, it, afterAll } from 'vitest';
-import request from "supertest";
+import request from 'supertest';
 
 const configurationDataSource = {
   type: 'postgres',
@@ -24,14 +24,11 @@ describe('[Feature] Coffees - /coffees', () => {
     brand: 'Buddy Brew',
     flavors: ['chocolate', 'vanilla'],
     recommendations: 3,
-  }
+  };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [
-        CoffeesModule,
-        TypeOrmModule.forRoot(configurationDataSource),
-      ],
+      imports: [CoffeesModule, TypeOrmModule.forRoot(configurationDataSource)],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -48,7 +45,6 @@ describe('[Feature] Coffees - /coffees', () => {
         .expect(HttpStatus.CREATED);
     });
   });
-
 
   describe('Get all [GET /]', () => {
     it('returns all coffees', async () => {

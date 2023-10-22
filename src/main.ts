@@ -20,10 +20,7 @@ async function bootstrap() {
       },
     }),
   );
-  app.useGlobalInterceptors(
-    new WrapResponseInterceptor(),
-    new TimeoutInterceptor(),
-  );
+  app.useGlobalInterceptors(new WrapResponseInterceptor(), new TimeoutInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const options = new DocumentBuilder()
