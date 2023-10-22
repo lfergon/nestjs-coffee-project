@@ -15,7 +15,7 @@ export class Coffee {
   @Column({ default: 0 })
   recommendations: number;
 
-  @JoinTable() // 👈 Join the 2 tables - only the OWNER-side does this
+  @JoinTable() // 👈 Join the 2 tables (linking table) - only the OWNER-side does this
   @ManyToMany(
     (type) => Flavor,
     (flavor) => flavor.coffees, // what is "coffee" within the Flavor Entity
