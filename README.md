@@ -114,7 +114,7 @@ before a Migration can run, it needs compiled files.
 
 ```shell
 // Compile project first
-$ npm run build
+$ pnpm run build
 
 // Run migration(s)
 $ npx typeorm migration:run -d dist/typeorm-cli.config

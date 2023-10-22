@@ -7,7 +7,9 @@ import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    snapshot: true,
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       forbidNonWhitelisted: true, // throws an error if any properties are not in the DTO
