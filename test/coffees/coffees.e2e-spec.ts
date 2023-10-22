@@ -63,7 +63,7 @@ describe('[Feature] Coffees - /coffees', () => {
   describe('Get one [GET /:id]', () => {
     it('returns one coffee', async () => {
       const { body } = await request(app.getHttpServer())
-        .get('/coffees/1')
+        .get('/coffees/2')
         .expect(200)
         .expect('Content-Type', /json/)
         .expect(HttpStatus.OK);
@@ -73,7 +73,7 @@ describe('[Feature] Coffees - /coffees', () => {
   describe('Update one [PATCH /:id]', () => {
     it('updates one coffee', async () => {
       const { body } = await request(app.getHttpServer())
-        .patch('/coffees/1')
+        .patch('/coffees/2')
         .send({ title: 'new title' })
         .expect(200)
         .expect('Content-Type', /json/)
@@ -84,7 +84,7 @@ describe('[Feature] Coffees - /coffees', () => {
   describe('Delete one [DELETE /:id]', () => {
     it('deletes one coffee', async () => {
       const { body } = await request(app.getHttpServer())
-        .delete('/coffees/1')
+        .delete('/coffees/2')
         .expect(200)
         .expect('Content-Type', /json/)
         .expect(HttpStatus.OK);
