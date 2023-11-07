@@ -29,7 +29,7 @@
     "@nestjs/devtools-integration": "^0.1.5",
     "@nestjs/mapped-types": "2.0.2",
     "@nestjs/platform-express": "10.2.7",
-    "@nestjs/swagger": "7.1.13",
+    "@nestjs/swagger": "7.1.14",
     "@nestjs/typeorm": "10.0.0",
     "install": "0.13.0",
     "pg": "8.11.3",
