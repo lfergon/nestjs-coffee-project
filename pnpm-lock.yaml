@@ -71,8 +71,8 @@ devDependencies:
     specifier: 4.17.21
     version: 4.17.21
   '@types/hapi__joi':
-    specifier: 17.1.13
-    version: 17.1.13
+    specifier: 17.1.14
+    version: 17.1.14
   '@types/node':
     specifier: 20.9.4
     version: 20.9.4
@@ -1263,8 +1263,8 @@ packages:
       '@types/serve-static': 1.15.5
     dev: true
 
-  /@types/hapi__joi@17.1.13:
-    resolution: {integrity: sha512-LcYYQiDUde97jztKd3oQ9D/P6nEK6FYhbBWoxQ0VJK9D9eWGu+XyiEGyPwjRxlP5lAKNMagyCL8QGiduGh0k9g==}
+  /@types/hapi__joi@17.1.14:
+    resolution: {integrity: sha512-elV1VhwXUfA1sw59ij75HWyCH+3cA7xLbaOY9GQ+iQo/S+jSSf22LNZAmsXMdfV8DZwquCZaCT+F43Xf6/txrQ==}
     dev: true
 
   /@types/http-cache-semantics@4.0.4:
