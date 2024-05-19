@@ -30,7 +30,7 @@
     "@nestjs/mapped-types": "2.0.4",
     "@nestjs/platform-express": "10.2.10",
     "@nestjs/swagger": "7.1.16",
-    "@nestjs/typeorm": "10.0.1",
+    "@nestjs/typeorm": "10.0.2",
     "install": "0.13.0",
     "pg": "8.11.3",
     "reflect-metadata": "0.1.13",
