@@ -12,8 +12,8 @@ dependencies:
     specifier: 10.3.0
     version: 10.3.0(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.1.13)(rxjs@7.8.1)
   '@nestjs/config':
-    specifier: 3.1.1
-    version: 3.1.1(@nestjs/common@10.3.0)(reflect-metadata@0.1.13)
+    specifier: 3.2.2
+    version: 3.2.2(@nestjs/common@10.3.0)(rxjs@7.8.1)
   '@nestjs/core':
     specifier: 10.3.8
     version: 10.3.8(@nestjs/common@10.3.0)(@nestjs/platform-express@10.2.10)(reflect-metadata@0.1.13)(rxjs@7.8.1)
@@ -744,18 +744,18 @@ packages:
       tslib: 2.6.2
       uid: 2.0.2
 
-  /@nestjs/config@3.1.1(@nestjs/common@10.3.0)(reflect-metadata@0.1.13):
-    resolution: {integrity: sha512-qu5QlNiJdqQtOsnB6lx4JCXPQ96jkKUsOGd+JXfXwqJqZcOSAq6heNFg0opW4pq4J/VZoNwoo87TNnx9wthnqQ==}
+  /@nestjs/config@3.2.2(@nestjs/common@10.3.0)(rxjs@7.8.1):
+    resolution: {integrity: sha512-vGICPOui5vE6kPz1iwQ7oCnp3qWgqxldPmBQ9onkVoKlBtyc83KJCr7CjuVtf4OdovMAVcux1d8Q6jglU2ZphA==}
     peerDependencies:
       '@nestjs/common': ^8.0.0 || ^9.0.0 || ^10.0.0
-      reflect-metadata: ^0.1.13
+      rxjs: ^7.1.0
     dependencies:
       '@nestjs/common': 10.3.0(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.1.13)(rxjs@7.8.1)
-      dotenv: 16.3.1
+      dotenv: 16.4.5
       dotenv-expand: 10.0.0
       lodash: 4.17.21
-      reflect-metadata: 0.1.13
-      uuid: 9.0.0
+      rxjs: 7.8.1
+      uuid: 9.0.1
     dev: false
 
   /@nestjs/core@10.3.8(@nestjs/common@10.3.0)(@nestjs/platform-express@10.2.10)(reflect-metadata@0.1.13)(rxjs@7.8.1):
@@ -2612,6 +2612,11 @@ packages:
 
   /dotenv@16.3.1:
     resolution: {integrity: sha512-IPzF4w4/Rd94bA9imS68tZBaYyBWSCE47V1RGuMrB94iyTOIEwRmVL2x/4An+6mETpLrKJ5hQkB8W4kFAadeIQ==}
+    engines: {node: '>=12'}
+    dev: false
+
+  /dotenv@16.4.5:
+    resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
     engines: {node: '>=12'}
     dev: false
 
@@ -5555,11 +5560,6 @@ packages:
   /utils-merge@1.0.1:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
     engines: {node: '>= 0.4.0'}
-
-  /uuid@9.0.0:
-    resolution: {integrity: sha512-MXcSTerfPa4uqyzStbRoTgt5XIe3x5+42+q1sDuy3R5MDk66URdLMOZe5aPX/SQd+kuYAh0FdP/pO28IkQyTeg==}
-    hasBin: true
-    dev: false
 
   /uuid@9.0.1:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
