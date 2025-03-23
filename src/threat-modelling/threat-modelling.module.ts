@@ -6,7 +6,7 @@ import { Command } from 'commander';
 // Import the Model type from Anthropic SDK
 import Anthropic from '@anthropic-ai/sdk';
 type ClaudeModel =
-  | 'claude-3-7-sonnet-latest'
+  | 'claude-3-7-sonnet-20250219'
   | 'claude-3-5-haiku-latest'
   | 'claude-3-5-haiku-20241022'
   | 'claude-3-5-sonnet-latest'
@@ -76,7 +76,7 @@ export class ThreatModellingModule {
       .option('-o, --output-path <path>', 'Path to store output files')
       .option('--no-global-threats', 'Skip global threat analysis')
       .option('--no-entity-threats', 'Skip entity threat analysis')
-      .option('--claude-model <model>', 'Claude model to use', 'claude-3-7-sonnet-latest')
+      .option('--claude-model <model>', 'Claude model to use', 'claude-3-7-sonnet-20250219')
       .action(
         async (options: {
           outputPath?: string;

@@ -11,31 +11,31 @@
       },
       {
         "category": "Tampering",
-        "description": "### Threat: Request Parameter Manipulation\n**Description:** An attacker might modify query parameters or headers to manipulate the endpoint's behavior...",
+        "description": "### Threat: Request Parameter Manipulation\n**Description:** An attacker might manipulate query parameters, headers, or other request data to influence...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Repudiation",
-        "description": "### Threat: Action Denial\n**Description:** A user performs an action and later denies it, with insufficient logging to prove otherwise.\n\n**Risk Level:...",
+        "description": "### Threat: Action Denial\n**Description:** Users could deny performing certain actions due to lack of proper logging or audit trails.\n\n**Risk Level:**...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Information Disclosure",
-        "description": "### Threat: Excessive Error Information\n**Description:** Detailed error messages might reveal implementation details or sensitive information.\n\n**Risk...",
+        "description": "### Threat: Excessive Data Exposure\n**Description:** The endpoint might return more information than necessary, potentially exposing sensitive data.\n\n...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Denial of Service",
-        "description": "### Threat: Resource Exhaustion\n**Description:** Repeated calls to the endpoint could exhaust server resources.\n\n**Risk Level: High**\n\n**",
+        "description": "### Threat: Resource Exhaustion\n**Description:** An attacker could overwhelm the endpoint with numerous requests, depleting server resources.\n\n**Risk ...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Elevation of Privilege",
-        "description": "### Threat: JWT Scope Manipulation\n**Description:** If JWT payload contains role/permission information, an attacker might try to manipulate it to gai...",
+        "description": "### Threat: JwtAuthGuard Bypass\n**Description:** An attacker might find ways to bypass the JwtAuthGuard through implementation flaws.\n\n**Risk Level:**...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       }
@@ -47,37 +47,37 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "### JWT Token Theft\n**Description**: An attacker could steal a valid JWT token through methods like XSS, man-in-the-middle attacks, or from insecure c...",
+        "description": "### Threat: JWT Token Theft\n**Description**: An attacker could steal a valid JWT token through XSS attacks, man-in-the-middle attacks, or from insecur...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Tampering",
-        "description": "### Request Parameter Manipulation\n**Description**: Attackers might manipulate query parameters to alter the behavior of the findAll endpoint (e.g., a...",
+        "description": "### Threat: API Response Manipulation\n**Description**: Attackers might intercept and modify API responses to manipulate data shown to users.\n\n**Risk L...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Repudiation",
-        "description": "### Insufficient Logging\n**Description**: Without proper logging, users could deny actions they've taken, and administrators would lack evidence of ma...",
+        "description": "### Threat: Action Denial\n**Description**: Users may deny performing actions, and without proper logging, it's difficult to prove otherwise.\n\n**Risk L...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Information Disclosure",
-        "description": "### Excessive Data Exposure\n**Description**: The findAll endpoint might return more data than necessary, potentially including sensitive information.\n...",
+        "description": "### Threat: Excessive Data Exposure\n**Description**: The endpoint might return more data than necessary, potentially exposing sensitive information.\n\n...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Denial of Service",
-        "description": "### Unprotected Resource Exhaustion\n**Description**: Without rate limiting, an attacker could flood the endpoint with requests, consuming resources an...",
+        "description": "### Threat: Request Flooding\n**Description**: Attackers might overwhelm the endpoint with a large number of requests, causing service degradation.\n\n**...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Elevation of Privilege",
-        "description": "### Insufficient Authorization Checks\n**Description**: While JwtAuthGuard ensures authentication, it might not properly enforce authorization for spec...",
+        "description": "### Threat: JWT Role/Scope Manipulation\n**Description**: An attacker might modify the JWT payload to include additional roles or permissions.\n\n**Risk ...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       }
@@ -89,37 +89,37 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "### Threat: JWT Token Theft\n**Risk Level: High**\n\nAn attacker could steal or forge JWT tokens to impersonate legitimate users and access the `/coffees...",
+        "description": "### JWT Token Theft\n**Description**: An attacker could steal a valid JWT token through various means (XSS, man-in-the-middle, etc.) and impersonate a ...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Tampering",
-        "description": "### Threat: Parameter Manipulation\n**Risk Level: Medium**\n\nAttackers might manipulate query parameters or path parameters to access unauthorized coffe...",
+        "description": "### Parameter",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Repudiation",
-        "description": "### Threat: Action Denial\n**Risk Level: Medium**\n\nUsers may deny having accessed specific coffee data, and without proper logging, you cannot prove ot...",
+        "description": "### Action Denial\n**Description**: A user could deny having accessed specific coffee records, and without proper logging, this claim cannot be refuted...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Information Disclosure",
-        "description": "### Threat: Excessive Data Exposure\n**Risk Level: Medium**\n\nThe endpoint might return more coffee data than necessary, including sensitive information...",
+        "description": "### Excessive Data Exposure\n**Description**: The endpoint might return more coffee data than necessary, potentially including sensitive information.\n\n...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Denial of Service",
-        "description": "### Threat: Resource Exhaustion\n**Risk Level: High**\n\nAttackers could overwhelm the endpoint with numerous requests, causing performance degradation.\n...",
+        "description": "### Rate Limiting Bypass\n**Description**: Without proper rate limiting, an attacker could make excessive requests to the endpoint, potentially causing...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Elevation of Privilege",
-        "description": "### Threat: Missing Authorization Checks\n**Risk Level: High**\n\nThe endpoint might rely solely on authentication (JwtAuthGuard) without proper authoriz...",
+        "description": "### Insufficient Authorization Checks\n**Description**: The JwtAuthGuard ensures authentication but may not properly check authorization for specific c...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       }
@@ -131,37 +131,37 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "### JWT Token Theft\n**Description:** An attacker could steal or forge JWT tokens to impersonate legitimate users.  \n**Risk Level:** High  \n**",
+        "description": "### Threat: JWT Token Theft\n**Risk Level**: High\n\n**Description**: An attacker could steal a valid JWT token through various means (XSS, man-in-the-mi...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Tampering",
-        "description": "### Improper HTTP Method\n**Description:** Using GET for a create operation violates REST principles and may expose parameters in logs and browser hist...",
+        "description": "### Threat: Improper Use of GET for Resource Creation\n**Risk Level**: Medium\n\n**Description**: Using GET for a create operation violates REST principl...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Repudiation",
-        "description": "### Insufficient Logging\n**Description:** Without proper logging, users could deny performing actions on the system.  \n**Risk Level:** Medium  \n**",
+        "description": "### Threat: Insufficient Logging\n**Risk Level**: Medium\n\n**Description**: Without proper logging, it's difficult to track who performed specific actio...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Information Disclosure",
-        "description": "### Excessive Error Information\n**Description:** Detailed error messages might reveal sensitive implementation details.  \n**Risk Level:** Medium  \n**",
+        "description": "### Threat: Excessive Error Information\n**Risk Level**: Medium\n\n**Description**: Detailed error messages might reveal sensitive information about the ...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Denial of Service",
-        "description": "### No Rate Limiting\n**Description:** Attackers could flood the endpoint with requests, causing service degradation.  \n**Risk Level:** High  \n**",
+        "description": "### Threat: Lack of Rate Limiting\n**Risk Level**: High\n\n**Description**: Without rate limiting, an attacker could overwhelm the service with repeated ...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Elevation of Privilege",
-        "description": "### Insufficient Authorization Checks\n**Description:** The endpoint may rely solely on authentication without proper authorization.  \n**Risk Level:** ...",
+        "description": "### Threat: Insufficient Authorization Checks\n**Risk Level**: High\n\n**Description**: The endpoint might rely solely on authentication (JwtAuthGuard) w...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       }
@@ -173,37 +173,37 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "### Threat: JWT Token Theft\n**Description:** An attacker could steal or forge JWT tokens to impersonate legitimate users and access the coffee update ...",
+        "description": "### Threat: JWT Token Theft and Reuse\n**Description:** An attacker could steal a valid JWT token through XSS, MITM attacks, or from insecure storage a...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Tampering",
-        "description": "### Threat: HTTP Method Mismatch\n**Description:** Using GET for an update operation violates REST principles and could lead to unintended data modific...",
+        "description": "### Threat: Modifying Query Parameters\n**Description:** Since this is a GET endpoint with 'update' in the name (which is unusual), it likely accepts q...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Repudiation",
-        "description": "### Threat: Lack of Audit Trail\n**Description:** Without proper logging, users could deny making changes to coffee data, and you'd lack evidence of wh...",
+        "description": "### Threat: Lack of Audit Logging\n**Description:** Without proper logging, users can deny performing actions, and you'll have no evidence of who did w...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Information Disclosure",
-        "description": "### Threat: Excessive Data Exposure\n**Description:** The endpoint might leak sensitive information in responses or error messages, revealing implement...",
+        "description": "### Threat: Excessive Error Information\n**Description:** Detailed error messages might reveal sensitive information about the implementation, database...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Denial of Service",
-        "description": "### Threat: Resource Exhaustion\n**Description:** The endpoint could be vulnerable to DoS attacks through excessive requests, large payloads, or operat...",
+        "description": "### Threat: Lack of Rate Limiting\n**Description:** Without rate limiting, an attacker could flood this endpoint with requests, potentially causing ser...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Elevation of Privilege",
-        "description": "### Threat: Insufficient Authorization Checks\n**Description:** The JwtAuthGuard only verifies authentication but doesn't check if the user has the pro...",
+        "description": "### Threat: Insufficient Authorization Checks\n**Description:** The endpoint may verify authentication but not properly check authorization for specifi...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       }
@@ -215,37 +215,37 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "### Threat: JWT Token Theft\n**Description:** An attacker could steal or forge JWT tokens to impersonate legitimate users and make unauthorized deletio...",
+        "description": "### Threat: JWT Token Theft\n**Description:** An attacker could steal a valid JWT token through various means (XSS, man-in-the-middle, etc.) and use it...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Tampering",
-        "description": "### Threat: Parameter Manipulation\n**Description:** Attackers might manipulate query parameters to delete unintended coffee entries.  \n**Risk Level:**...",
+        "description": "### Threat: Parameter Manipulation\n**Description:** Since this is a GET request for a resource removal operation, it likely uses query parameters. The...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Repudiation",
-        "description": "### Threat: Action Denial\n**Description:** Users could deny performing deletion actions due to insufficient logging.  \n**Risk Level:** Medium  \n**",
+        "description": "### Threat: Insufficient Logging\n**Description:** Without proper logging, an attacker could delete resources and there would be no record of who perfo...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Information Disclosure",
-        "description": "### Threat: Excessive Error Information\n**Description:** Detailed error messages could reveal sensitive implementation details.  \n**Risk Level:** Medi...",
+        "description": "### Threat: Verbose Error Messages\n**Description:** Detailed error messages might reveal sensitive information about the system architecture, database...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Denial of Service",
-        "description": "### Threat: Uncontrolled Resource Consumption\n**Description:** An attacker could make numerous deletion requests to exhaust system resources.  \n**Risk...",
+        "description": "### Threat: Resource Exhaustion\n**Description:** Using GET for a deletion operation could lead to accidental or malicious repeated calls, potentially ...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Elevation of Privilege",
-        "description": "### Threat: Missing Authorization Checks\n**Description:** The endpoint may rely solely on authentication without proper authorization checks.  \n**Risk...",
+        "description": "### Threat: Insufficient Authorization\n**Description:** The JwtAuthGuard ensures authentication but might not properly check authorization for specifi...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       }
@@ -254,7 +254,44 @@
   {
     "assetName": "Coffee",
     "assetType": "data",
-    "threats": []
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "### Threat: Unauthorized Entity Access\n**Risk Level: Medium**\n\nAn attacker could impersonate a legitimate user to access Coffee entity data, especiall...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "### Threat: Unauthorized Data Modification\n**Risk Level: High**\n\nThe Coffee entity contains fields like `recommendations` that could be manipulated to...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "### Threat: Untraceable Data Modifications\n**Risk Level: Medium**\n\nThe current entity structure lacks audit trails, making it impossible to track who ...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "### Threat: Sensitive Data Exposure\n**Risk Level: Medium**\n\nWhile the Coffee entity doesn't appear to contain highly sensitive data, brand information...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "### Threat: Database Resource Exhaustion\n**Risk Level: Medium**\n\nThe `ManyToMany` relationship with cascade enabled could lead to resource exhaustion ...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "### Threat: Unauthorized Admin Access to Coffee Data\n**Risk Level: High**\n\nWithout proper authorization checks, a regular user might gain administrati...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      }
+    ]
   },
   {
     "assetName": "Flavor",
@@ -262,37 +299,37 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "### Threat: Unauthorized Entity Impersonation\n**Risk Level: Medium**\n\nAn attacker could impersonate a legitimate Flavor entity by manipulating the ID ...",
+        "description": "**Threat**: Unauthorized users could impersonate authorized users to access or modify flavor data. Without proper authentication mechanisms, attackers...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Tampering",
-        "description": "### Threat: Unauthorized Data Modification\n**Risk Level: High**\n\nWithout proper controls, attackers could modify flavor data, potentially affecting pr...",
+        "description": "**Threat**: Malicious actors could modify flavor data without authorization, potentially changing flavor names or relationships with coffees.\n\n**Risk ...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Repudiation",
-        "description": "### Threat: Deniability of Actions\n**Risk Level: Medium**\n\nUsers might perform unauthorized changes to flavor data and later deny these actions due to...",
+        "description": "**Threat**: Users could deny making changes to flavor data, and without proper logging, it would be difficult to verify who made what changes.\n\n**Risk...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Information Disclosure",
-        "description": "### Threat: Unauthorized Access to Flavor Data\n**Risk Level: Medium**\n\nWhile flavor data might not seem sensitive, proprietary flavor combinations cou...",
+        "description": "**Threat**: Sensitive flavor information could be exposed to unauthorized users through overly permissive API endpoints or database access.\n\n**Risk Le...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Denial of Service",
-        "description": "### Threat: System Overload via Relationship Exploitation\n**Risk Level: High**\n\nThe ManyToMany relationship with Coffee entities could be exploited to...",
+        "description": "**Threat**: The system could be overwhelmed by excessive requests for flavor data, making it unavailable to legitimate users.\n\n**Risk Level**: Low\n\n**",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Elevation of Privilege",
-        "description": "### Threat: Unauthorized Administrative Access\n**Risk Level: Critical**\n\nAttackers might exploit vulnerabilities to gain administrative access to mana...",
+        "description": "**Threat**: Attackers could exploit vulnerabilities to gain higher privileges than intended, allowing them to access or modify flavor data beyond thei...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       }
@@ -304,37 +341,37 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "### Threat: Unauthorized Access to Event Data\n**Risk Level: High**\n\nAn attacker could impersonate a legitimate user or service to gain unauthorized ac...",
+        "description": "### Threat: Identity",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Tampering",
-        "description": "### Threat: Unauthorized Modification of Event Data\n**Risk Level: Critical**\n\nThe `payload` field accepts any JSON data (`Record<string, any>`), makin...",
+        "description": "### Threat: Unauthorized Event Data Modification\n**Risk Level: High**\n\nThe `payload` field accepts any JSON structure (`Record<string, any>`), making ...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Repudiation",
-        "description": "### Threat: Denial of Event Actions\n**Risk Level: Medium**\n\nThe entity lacks audit fields (created by, modified by, timestamps), making it difficult t...",
+        "description": "### Threat: Denial of Event Creation or Modification\n**Risk Level: Medium**\n\nUsers could deny creating or modifying events, as there's no built-in aud...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Information Disclosure",
-        "description": "### Threat: Exposure of Sensitive Payload Data\n**Risk Level: High**\n\nThe `payload` field may contain sensitive information without any built-in protec...",
+        "description": "### Threat: Sensitive Data Exposure in JSON Payload\n**Risk Level: Critical**\n\nThe unstructured `payload` field could contain sensitive information wit...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Denial of Service",
-        "description": "### Threat: Resource Exhaustion via Large Payloads\n**Risk Level: Medium**\n\nThe unvalidated JSON payload field could allow for extremely large objects ...",
+        "description": "### Threat: Resource Exhaustion via Large Payloads\n**Risk Level: Medium**\n\nThe unbounded JSON payload could allow for extremely large objects, potenti...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Elevation of Privilege",
-        "description": "### Threat: Privilege Escalation via Event Processing\n**Risk Level: High**\n\nIf the application processes events and executes logic based on the `type`...",
+        "description": "### Threat: Privilege Escalation via Event Processing\n**Risk Level: High**\n\nIf the application processes events and takes actions based on their conte...",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       }
@@ -345,16 +382,472 @@
     "assetType": "process",
     "threats": [
       {
+        "category": "Spoofing",
+        "description": "Spoofing\n\n### Threat 1: Insufficient Authentication Mechanisms\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Implement JWT (JSON Web Token) authentication using `@nestjs/jwt`",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Configure Passport.js with appropriate strategies (`@nestjs/passport`)",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Use strong password policies with bcrypt for password hashing",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Implement multi-factor authentication for administrative access",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Set appropriate token expiration times",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Add rate limiting to prevent brute force attacks\n\n```typescript\n// auth.module.ts\n@Module({\n  imports: [\n    JwtModule.register({\n      secret: process.env.JWT_SECRET,\n      signOptions: { expiresIn: '1h' },\n    }),\n    PassportModule,\n  ],\n  // ...\n})\n```\n\n### Threat 2: Session Management Vulnerabilities\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Use secure, HTTP-only cookies with SameSite attribute",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Implement proper session timeout and renewal mechanisms",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Add session revocation capabilities",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Include the user's IP address and user agent in token validation",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Implement CSRF protection using `csurf` middleware",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Spoofing",
+        "description": "Use secure session storage with `express-session` or equivalent\n\n```typescript\n// main.ts\nasync function bootstrap() {\n  const app = await NestFactory.create(AppModule);\n  app.use(\n    session({\n      secret: process.env.SESSION_SECRET,\n      resave: false,\n      saveUninitialized: false,\n      cookie: {\n        httpOnly: true,\n        secure: process.env.NODE_ENV === 'production',\n        maxAge: 3600000, // 1 hour\n        sameSite: 'strict'\n      }\n    })\n  );\n  // ...\n}\n```\n\n##",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Tampering\n\n### Threat 1: Unprotected API Endpoints\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Tampering",
+        "description": "Implement role-based access control (RBAC) using NestJS Guards",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Apply fine-grained permissions for each endpoint",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Use `@nestjs/casl` for advanced authorization rules",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Implement entity-level permissions for Coffee and Flavor entities",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Add audit trails for all data modifications",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Validate that users can only modify their own resources\n\n```typescript\n// coffee.controller.ts\n@Controller('coffees')\nexport class CoffeesController {\n  @Put(':id')\n  @UseGuards(JwtAuthGuard, RolesGuard)\n  @Roles('admin', 'manager')\n  update(@Param('id') id: string, @Body() updateCoffeeDto: UpdateCoffeeDto) {\n    return this.coffeesService.update(id, updateCoffeeDto);\n  }\n}\n```\n\n### Threat 2: Insecure Direct Object References (IDOR)\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Tampering",
+        "description": "Implement indirect reference maps to prevent direct exposure of database IDs",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Ensure all data access goes through proper authorization checks",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Use UUIDs instead of sequential IDs where possible",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Verify object ownership before allowing operations",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Apply consistent access control at the service layer",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "Use custom parameter decorators to validate resource access\n\n```typescript\n// coffee.service.ts\nasync findOne(id: string, userId: string) {\n  const coffee = await this.coffeeRepository.findOne(id);\n  if (!coffee) {\n    throw new NotFoundException(`Coffee with ID ${id} not found`);\n  }\n  \n  // Check if user has access to this coffee\n  if (coffee.ownerId !== userId && !this.authService.isAdmin(userId)) {\n    throw new ForbiddenException('You do not have access to this resource');\n  }\n  \n  return coffee;\n}\n```\n\n##",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Repudiation\n\n### Threat 1: Inadequate Logging and Monitoring\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Implement centralized logging using NestJS Logger or a dedicated logging module like Winston",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Include user IDs, timestamps, IP addresses, and actions in all logs",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Use correlation IDs to track requests across the system",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Store logs securely with tamper-evident mechanisms",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Implement log rotation and retention policies",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Add monitoring and alerting for suspicious activities\n\n```typescript\n// logging.middleware.ts\n@Injectable()\nexport class LoggingMiddleware implements NestMiddleware {\n  private logger = new Logger('HTTP');\n\n  use(req: Request, res: Response, next: Function) {\n    const { ip, method, originalUrl } = req;\n    const userAgent = req.get('user-agent') || '';\n    const userId = req.user?.id || 'anonymous';\n    \n    const requestId = uuid();\n    req.requestId = requestId;\n    \n    res.on('finish', () => {\n      const { statusCode } = res;\n      this.logger.log(\n        `${method} ${originalUrl} ${statusCode} - ${userId} - ${ip} - ${userAgent} - ${requestId}`\n      );\n    });\n    \n    next();\n  }\n}\n```\n\n### Threat 2: Lack of Audit Trails for Critical Operations\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Implement an Event entity to record all significant data changes",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Use event sourcing patterns for critical operations",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Create database triggers or hooks to capture changes",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Implement separate audit log tables with immutable records",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Use TypeORM subscribers to automatically log entity changes",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "Add digital signatures to audit records for non-",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
         "category": "Information Disclosure",
-        "description": "Information Disclosure,",
+        "description": "Information Disclosure\n\n### Threat 1: Sensitive Data Exposure\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Use DTO (Data Transfer Object) classes to control exactly what data is returned",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Implement class-transformer to exclude sensitive properties",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Configure proper CORS settings to prevent unauthorized domains from accessing data",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Use environment variables for all sensitive configuration",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Implement proper error handling to avoid leaking implementation details",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Add response interceptors to sanitize all outgoing data\n\n```typescript\n// coffee.dto.ts\nexport class CoffeeResponseDto {\n  @Expose()\n  id: string;\n  \n  @Expose()\n  name: string;\n  \n  @Expose()\n  description: string;\n  \n  // Sensitive fields not exposed\n  @Exclude()\n  supplierInfo: string;\n  \n  @Exclude()\n  costPrice: number;\n}\n\n// transform.interceptor.ts\n@Injectable()\nexport class TransformInterceptor implements NestInterceptor {\n  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {\n    return next.handle().pipe(\n      map((data) => {\n        return plainToClass(\n          this.getResponseDtoClass(context),\n          data,\n          { excludeExtraneousValues: true }\n        );\n      }),\n    );\n  }\n  \n  private getResponseDtoClass(context: ExecutionContext) {\n    // Logic to determine appropriate DTO class based on the route\n  }\n}\n```\n\n### Threat 2: Insecure Error Handling\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Create a global exception filter to sanitize error responses",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Return generic error messages to clients while logging detailed errors server-side",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Use custom exception classes with appropriate HTTP status codes",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Implement different error handling for development and production environments",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Never return stack traces or system details in production",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Add correlation IDs to errors for troubleshooting without exposing details\n\n```typescript\n// http-exception.filter.ts\n@Catch(HttpException)\nexport class HttpExceptionFilter implements ExceptionFilter {\n  private logger = new Logger('ExceptionFilter');\n\n  catch(exception: HttpException, host: ArgumentsHost) {\n    const ctx = host.switchToHttp();\n    const response = ctx.getResponse<Response>();\n    const request = ctx.getRequest<Request>();\n    const status = exception.getStatus();\n    const errorResponse = exception.getResponse();\n    \n    const errorId = uuid();\n    \n    // Log detailed error for server-side debugging\n    this.logger.error({\n      errorId,\n      path: request.url,\n      method: request.method,\n      timestamp: new Date().toISOString(),\n      exception: exception.stack,\n      body: request.body,\n      user: request.user?.id || 'anonymous'\n    });\n    \n    // Return sanitized error to client\n    response.status(status).json({\n      statusCode: status,\n      message: typeof errorResponse === 'object' && 'message' in errorResponse \n        ? errorResponse.message \n        : 'An error occurred',\n      errorId: errorId,\n      timestamp: new Date().toISOString(),\n    });\n  }\n}\n```\n\n##",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Denial of Service\n\n### Threat 1: Lack of Rate Limiting\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Implement rate limiting using `@nestjs/throttler`",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Set different limits for different endpoints based on resource consumption",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Use Redis or another distributed cache for rate limit tracking in clustered environments",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Add circuit breakers for external service calls",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Implement timeouts for all operations",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Configure proper queue management for background tasks\n\n```typescript\n// app.module.ts\n@Module({\n  imports: [\n    ThrottlerModule.forRoot({\n      ttl: 60,\n      limit: 10,\n    }),\n  ],\n})\nexport class AppModule {}\n\n// coffee.controller.ts\n@Controller('coffees')\n@UseGuards(ThrottlerGuard)\nexport class CoffeesController {\n  @Get('search')\n  @Throttle(5, 60) // Override global settings for resource-intensive endpoint\n  search(@Query('term') term: string) {\n    return this.coffeesService.search(term);\n  }\n}\n```\n\n### Threat 2: Unoptimized Database Queries\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Use pagination for all list endpoints",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Implement query optimization with proper indexing",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Add caching for frequently accessed data using Redis or in-memory caching",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Limit the depth of relational queries",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Use database connection pooling with appropriate limits",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Implement query timeouts to prevent long-running operations\n\n```typescript\n// coffee.controller.ts\n@Get()\nasync findAll(\n  @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,\n  @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,\n) {\n  return this.coffeesService.findAll({\n    page,\n    limit,\n    route: 'http://localhost:3000/coffees',\n  });\n}\n\n// coffee.service.ts\nasync findAll(options: IPaginationOptions): Promise<Pagination<Coffee>> {\n  return paginate<Coffee>(this.coffeeRepository, options, {\n    cache: {\n      id: 'coffees_list',\n      milliseconds: 10000 // Cache for 10 seconds\n    },\n    relations: ['flavors'], // Limit relations to necessary ones\n    maxExecutionTime: 1000 // 1 second timeout\n  });\n}\n```\n\n##",
         "riskLevel": "Medium",
         "mitigationStrategy": "Implement proper security controls"
       },
       {
         "category": "Elevation of Privilege",
-        "description": "Elevation of Privilege) to identify significant security risks and provide comprehensive mitigation strategies.\n\n## 1.",
+        "description": "Elevation of Privilege\n\n### Threat 1: Insecure Role-Based Access Control\n**",
         "riskLevel": "Medium",
-        "mitigationStrategy": "strategies."
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Implement a comprehensive role-based access control system",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Use NestJS guards to protect routes based on roles",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Apply the principle of least privilege",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Validate permissions at multiple levels (controller, service)",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Implement attribute-based access control for fine-grained permissions",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Regularly audit role assignments and permissions\n\n```typescript\n// roles.guard.ts\n@Injectable()\nexport class RolesGuard implements CanActivate {\n  constructor(private reflector: Reflector) {}\n\n  canActivate(context: ExecutionContext): boolean {\n    const requiredRoles = this.reflector.getAllAndOverride<string[]>('roles', [\n      context.getHandler(),\n      context.getClass(),\n    ]);\n    \n    if (!requiredRoles) {\n      return true;\n    }\n    \n    const { user } = context.switchToHttp().getRequest();\n    \n    if (!user) {\n      return false;\n    }\n    \n    return requiredRoles.some((role) => user.roles?.includes(role));\n  }\n}\n\n// permissions.decorator.ts\nexport const RequirePermission = (...permissions: string[]) => \n  SetMetadata('permissions', permissions);\n\n// coffee.controller.ts\n@Delete(':id')\n@UseGuards(JwtAuthGuard, PermissionsGuard)\n@RequirePermission('delete:coffee')\nremove(@Param('id') id: string) {\n  return this.coffeesService.remove(id);\n}\n```\n\n### Threat 2: Missing Input Validation and Sanitization\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "**"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Use class-validator for comprehensive DTO validation",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Implement custom validators for business-specific rules",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Sanitize all inputs to prevent injection attacks",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Use TypeORM's parameterized queries to prevent SQL injection",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Apply validation pipes globally",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Implement content security policies\n\n```typescript\n// main.ts\nasync function bootstrap() {\n  const app = await NestFactory.create(AppModule);\n  \n  app.useGlobalPipes(\n    new ValidationPipe({\n      whitelist: true, // Strip properties not in DTO\n      forbidNonWhitelisted: true, // Throw error if non-whitelisted properties are present\n      transform: true, // Transform payloads to DTO instances\n      transformOptions: {\n        enableImplicitConversion: true,\n      },\n    }),\n  );\n  \n  // ...\n}\n\n// create-coffee.dto.ts",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
       }
     ]
   }
