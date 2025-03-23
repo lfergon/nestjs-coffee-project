@@ -1,0 +1,361 @@
+[
+  {
+    "assetName": "GET /appcontroller/getHello",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "### Threat: JWT Token Theft\n**Description:** An attacker could steal a valid JWT token through various means (XSS, man-in-the-middle attacks, client-s...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "### Threat: Request Parameter Manipulation\n**Description:** An attacker might modify query parameters or headers to manipulate the endpoint's behavior...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "### Threat: Action Denial\n**Description:** A user performs an action and later denies it, with insufficient logging to prove otherwise.\n\n**Risk Level:...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "### Threat: Excessive Error Information\n**Description:** Detailed error messages might reveal implementation details or sensitive information.\n\n**Risk...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "### Threat: Resource Exhaustion\n**Description:** Repeated calls to the endpoint could exhaust server resources.\n\n**Risk Level: High**\n\n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "### Threat: JWT Scope Manipulation\n**Description:** If JWT payload contains role/permission information, an attacker might try to manipulate it to gai...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      }
+    ]
+  },
+  {
+    "assetName": "GET /coffeescontroller/findAll",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "### JWT Token Theft\n**Description**: An attacker could steal a valid JWT token through methods like XSS, man-in-the-middle attacks, or from insecure c...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "### Request Parameter Manipulation\n**Description**: Attackers might manipulate query parameters to alter the behavior of the findAll endpoint (e.g., a...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "### Insufficient Logging\n**Description**: Without proper logging, users could deny actions they've taken, and administrators would lack evidence of ma...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "### Excessive Data Exposure\n**Description**: The findAll endpoint might return more data than necessary, potentially including sensitive information.\n...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "### Unprotected Resource Exhaustion\n**Description**: Without rate limiting, an attacker could flood the endpoint with requests, consuming resources an...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "### Insufficient Authorization Checks\n**Description**: While JwtAuthGuard ensures authentication, it might not properly enforce authorization for spec...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      }
+    ]
+  },
+  {
+    "assetName": "GET /coffeescontroller/findOne",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "### Threat: JWT Token Theft\n**Risk Level: High**\n\nAn attacker could steal or forge JWT tokens to impersonate legitimate users and access the `/coffees...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "### Threat: Parameter Manipulation\n**Risk Level: Medium**\n\nAttackers might manipulate query parameters or path parameters to access unauthorized coffe...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "### Threat: Action Denial\n**Risk Level: Medium**\n\nUsers may deny having accessed specific coffee data, and without proper logging, you cannot prove ot...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "### Threat: Excessive Data Exposure\n**Risk Level: Medium**\n\nThe endpoint might return more coffee data than necessary, including sensitive information...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "### Threat: Resource Exhaustion\n**Risk Level: High**\n\nAttackers could overwhelm the endpoint with numerous requests, causing performance degradation.\n...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "### Threat: Missing Authorization Checks\n**Risk Level: High**\n\nThe endpoint might rely solely on authentication (JwtAuthGuard) without proper authoriz...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      }
+    ]
+  },
+  {
+    "assetName": "GET /coffeescontroller/create",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "### JWT Token Theft\n**Description:** An attacker could steal or forge JWT tokens to impersonate legitimate users.  \n**Risk Level:** High  \n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "### Improper HTTP Method\n**Description:** Using GET for a create operation violates REST principles and may expose parameters in logs and browser hist...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "### Insufficient Logging\n**Description:** Without proper logging, users could deny performing actions on the system.  \n**Risk Level:** Medium  \n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "### Excessive Error Information\n**Description:** Detailed error messages might reveal sensitive implementation details.  \n**Risk Level:** Medium  \n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "### No Rate Limiting\n**Description:** Attackers could flood the endpoint with requests, causing service degradation.  \n**Risk Level:** High  \n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "### Insufficient Authorization Checks\n**Description:** The endpoint may rely solely on authentication without proper authorization.  \n**Risk Level:** ...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      }
+    ]
+  },
+  {
+    "assetName": "GET /coffeescontroller/update",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "### Threat: JWT Token Theft\n**Description:** An attacker could steal or forge JWT tokens to impersonate legitimate users and access the coffee update ...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "### Threat: HTTP Method Mismatch\n**Description:** Using GET for an update operation violates REST principles and could lead to unintended data modific...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "### Threat: Lack of Audit Trail\n**Description:** Without proper logging, users could deny making changes to coffee data, and you'd lack evidence of wh...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "### Threat: Excessive Data Exposure\n**Description:** The endpoint might leak sensitive information in responses or error messages, revealing implement...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "### Threat: Resource Exhaustion\n**Description:** The endpoint could be vulnerable to DoS attacks through excessive requests, large payloads, or operat...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "### Threat: Insufficient Authorization Checks\n**Description:** The JwtAuthGuard only verifies authentication but doesn't check if the user has the pro...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      }
+    ]
+  },
+  {
+    "assetName": "GET /coffeescontroller/remove",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "### Threat: JWT Token Theft\n**Description:** An attacker could steal or forge JWT tokens to impersonate legitimate users and make unauthorized deletio...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "### Threat: Parameter Manipulation\n**Description:** Attackers might manipulate query parameters to delete unintended coffee entries.  \n**Risk Level:**...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "### Threat: Action Denial\n**Description:** Users could deny performing deletion actions due to insufficient logging.  \n**Risk Level:** Medium  \n**",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "### Threat: Excessive Error Information\n**Description:** Detailed error messages could reveal sensitive implementation details.  \n**Risk Level:** Medi...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "### Threat: Uncontrolled Resource Consumption\n**Description:** An attacker could make numerous deletion requests to exhaust system resources.  \n**Risk...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "### Threat: Missing Authorization Checks\n**Description:** The endpoint may rely solely on authentication without proper authorization checks.  \n**Risk...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      }
+    ]
+  },
+  {
+    "assetName": "Coffee",
+    "assetType": "data",
+    "threats": []
+  },
+  {
+    "assetName": "Flavor",
+    "assetType": "data",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "### Threat: Unauthorized Entity Impersonation\n**Risk Level: Medium**\n\nAn attacker could impersonate a legitimate Flavor entity by manipulating the ID ...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "### Threat: Unauthorized Data Modification\n**Risk Level: High**\n\nWithout proper controls, attackers could modify flavor data, potentially affecting pr...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "### Threat: Deniability of Actions\n**Risk Level: Medium**\n\nUsers might perform unauthorized changes to flavor data and later deny these actions due to...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "### Threat: Unauthorized Access to Flavor Data\n**Risk Level: Medium**\n\nWhile flavor data might not seem sensitive, proprietary flavor combinations cou...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "### Threat: System Overload via Relationship Exploitation\n**Risk Level: High**\n\nThe ManyToMany relationship with Coffee entities could be exploited to...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "### Threat: Unauthorized Administrative Access\n**Risk Level: Critical**\n\nAttackers might exploit vulnerabilities to gain administrative access to mana...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      }
+    ]
+  },
+  {
+    "assetName": "Event",
+    "assetType": "data",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "### Threat: Unauthorized Access to Event Data\n**Risk Level: High**\n\nAn attacker could impersonate a legitimate user or service to gain unauthorized ac...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Tampering",
+        "description": "### Threat: Unauthorized Modification of Event Data\n**Risk Level: Critical**\n\nThe `payload` field accepts any JSON data (`Record<string, any>`), makin...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Repudiation",
+        "description": "### Threat: Denial of Event Actions\n**Risk Level: Medium**\n\nThe entity lacks audit fields (created by, modified by, timestamps), making it difficult t...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "### Threat: Exposure of Sensitive Payload Data\n**Risk Level: High**\n\nThe `payload` field may contain sensitive information without any built-in protec...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Denial of Service",
+        "description": "### Threat: Resource Exhaustion via Large Payloads\n**Risk Level: Medium**\n\nThe unvalidated JSON payload field could allow for extremely large objects ...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "### Threat: Privilege Escalation via Event Processing\n**Risk Level: High**\n\nIf the application processes events and executes logic based on the `type`...",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      }
+    ]
+  },
+  {
+    "assetName": "Global Application",
+    "assetType": "process",
+    "threats": [
+      {
+        "category": "Information Disclosure",
+        "description": "Information Disclosure,",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper security controls"
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Elevation of Privilege) to identify significant security risks and provide comprehensive mitigation strategies.\n\n## 1.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "strategies."
+      }
+    ]
+  }
+]
