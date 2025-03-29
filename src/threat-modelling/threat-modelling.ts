@@ -399,33 +399,6 @@ export class StrideModelGenerator {
     return files;
   }
 
-  // Helper to get HTTP method using NestJS metadata
-  private getHttpMethodFromMetadata(handler: Function): string {
-    // Check for common decorators' metadata keys
-    if (Reflect.getMetadata('__method__', handler) !== undefined) {
-      // Older Nest versions might use numerical codes
-      const methodCode = Reflect.getMetadata('__method__', handler);
-      switch (methodCode) {
-        case 0: return 'GET';
-        case 1: return 'POST';
-        case 2: return 'PUT';
-        case 3: return 'DELETE';
-        case 4: return 'PATCH';
-        case 5: return 'ALL';
-        case 6: return 'OPTIONS';
-        case 7: return 'HEAD';
-        default: break; // Fall through to check string metadata
-      }
-    }
-    // Check metadata used by @nestjs/common decorators (e.g., @Get, @Post)
-    const method = Reflect.getMetadata('method', handler);
-    if (typeof method === 'string') return method.toUpperCase();
-
-    // Fallback or default
-    return 'UNKNOWN';
-  }
-
-
   // --- Entity Extraction (remains the same) ---
   private async extractEntityDefinitions(): Promise<void> {
     // Implementation remains the same as in the original code...
@@ -495,7 +468,6 @@ export class StrideModelGenerator {
 
 
   // --- AI Threat Model Generation ---
-
   private async generateAIThreatModels(): Promise<void> {
     // --- Endpoint Analysis ---
     console.log("\n--- Generating Endpoint Threat Models ---");
