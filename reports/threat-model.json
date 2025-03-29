@@ -1,0 +1,218 @@
+[
+  {
+    "assetName": "GET //",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "Authentication bypass through session manipulation.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper JWT-based authentication with short-lived tokens and refresh mechanism."
+      },
+      {
+        "category": "Tampering",
+        "description": "Malicious modification of request data.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Use NestJS ValidationPipe with strict DTOs and whitelist validation."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Sensitive data exposure through error messages.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement a global exception filter that sanitizes error details in production."
+      }
+    ]
+  },
+  {
+    "assetName": "GET coffees/",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "Authentication bypass through session manipulation.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper JWT-based authentication with short-lived tokens and refresh mechanism."
+      },
+      {
+        "category": "Tampering",
+        "description": "Malicious modification of request data.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Use NestJS ValidationPipe with strict DTOs and whitelist validation."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Sensitive data exposure through error messages.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement a global exception filter that sanitizes error details in production."
+      }
+    ]
+  },
+  {
+    "assetName": "GET coffees/:id",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "Authentication bypass through session manipulation.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper JWT-based authentication with short-lived tokens and refresh mechanism."
+      },
+      {
+        "category": "Tampering",
+        "description": "Malicious modification of request data.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Use NestJS ValidationPipe with strict DTOs and whitelist validation."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Sensitive data exposure through error messages.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement a global exception filter that sanitizes error details in production."
+      }
+    ]
+  },
+  {
+    "assetName": "POST coffees/",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "Authentication bypass through session manipulation.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper JWT-based authentication with short-lived tokens and refresh mechanism."
+      },
+      {
+        "category": "Tampering",
+        "description": "Malicious modification of request data.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Use NestJS ValidationPipe with strict DTOs and whitelist validation."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Sensitive data exposure through error messages.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement a global exception filter that sanitizes error details in production."
+      }
+    ]
+  },
+  {
+    "assetName": "PATCH coffees/:id",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "Authentication bypass through session manipulation.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper JWT-based authentication with short-lived tokens and refresh mechanism."
+      },
+      {
+        "category": "Tampering",
+        "description": "Malicious modification of request data.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Use NestJS ValidationPipe with strict DTOs and whitelist validation."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Sensitive data exposure through error messages.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement a global exception filter that sanitizes error details in production."
+      }
+    ]
+  },
+  {
+    "assetName": "DELETE coffees/:id",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "Authentication bypass through session manipulation.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement proper JWT-based authentication with short-lived tokens and refresh mechanism."
+      },
+      {
+        "category": "Tampering",
+        "description": "Malicious modification of request data.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Use NestJS ValidationPipe with strict DTOs and whitelist validation."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Sensitive data exposure through error messages.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement a global exception filter that sanitizes error details in production."
+      }
+    ]
+  },
+  {
+    "assetName": "Coffee",
+    "assetType": "data",
+    "threats": [
+      {
+        "category": "Tampering",
+        "description": "Unauthorized modification of entity data.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Implement RBAC using NestJS guards and ensure proper access control checks."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Leakage of sensitive entity data.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Use data transformation via interceptors to filter out sensitive fields."
+      }
+    ]
+  },
+  {
+    "assetName": "Flavor",
+    "assetType": "data",
+    "threats": [
+      {
+        "category": "Tampering",
+        "description": "Unauthorized modification of entity data.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Implement RBAC using NestJS guards and ensure proper access control checks."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Leakage of sensitive entity data.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Use data transformation via interceptors to filter out sensitive fields."
+      }
+    ]
+  },
+  {
+    "assetName": "Event",
+    "assetType": "data",
+    "threats": [
+      {
+        "category": "Tampering",
+        "description": "Unauthorized modification of entity data.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Implement RBAC using NestJS guards and ensure proper access control checks."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "Leakage of sensitive entity data.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Use data transformation via interceptors to filter out sensitive fields."
+      }
+    ]
+  },
+  {
+    "assetName": "Global Application Architecture",
+    "assetType": "process",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "Inadequate authentication mechanisms.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Implement multi-factor authentication and proper session management."
+      },
+      {
+        "category": "Denial of Service",
+        "description": "Lack of rate limiting allows attackers to overwhelm resources.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Use @nestjs/throttler to implement rate limiting on all endpoints."
+      }
+    ]
+  }
+]
