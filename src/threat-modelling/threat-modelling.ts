@@ -1,11 +1,9 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
-import { INestApplication } from '@nestjs/common';
 import {
   GoogleGenAI, HarmBlockThreshold, HarmCategory, SafetySetting,
 } from '@google/genai';
-import GenerativeModel from "@google-ai/generativelanguage";
 import { ConfigService } from '@nestjs/config'; // Assuming ConfigModule is set up globally or imported
 
 // Load environment variables early
