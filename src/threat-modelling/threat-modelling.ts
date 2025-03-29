@@ -981,7 +981,21 @@ export class StrideModelGenerator {
         }
 
       } else {
-        console.warn(`⚠️ Found section heading "${categoryName}" in AI response that doesn't match a known STRIDE category.`);
+        // Check if it's an introductory or structural heading (not worth warning about)
+        const ignorableHeadings = [
+          'stride threat model', 'summary', 'introduction', 'assumptions', 
+          'overview', 'entity', 'controller', 'recommendations', 'analysis',
+          'background', 'threats', 'conclusion'
+        ];
+        
+        const isIgnorable = ignorableHeadings.some(heading => 
+          categoryName.toLowerCase().includes(heading.toLowerCase())
+        );
+        
+        if (!isIgnorable) {
+          // If not ignorable, log a warning as it might be a category we're missing
+          console.warn(`⚠️ Found section heading "${categoryName}" in AI response that doesn't match a known STRIDE category.`);
+        }
       }
     }
 

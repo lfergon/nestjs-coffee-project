@@ -5,75 +5,63 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "An attacker spoofs a request by modifying the `Referer` header or other request origins to attempt unauthorized access, assuming the endpoint is trusting these headers for authorization.",
+        "description": "An attacker spoofs the source IP address to make the request appear to originate from a trusted source. Since there's no authentication, this could allow an attacker to bypass potential future restrictions based on IP addresses if any are implemented without proper validation.",
         "riskLevel": "Low",
-        "mitigationStrategy": "Avoid relying on `Referer` or origin headers for authorization. If CORS is used, ensure it is configured correctly to only allow requests from expected origins, but remember this is client-side and easily bypassed.  Implement proper authentication and authorization mechanisms instead."
+        "mitigationStrategy": "While no specific authentication is in place yet, consider implementing authentication as a first step (e.g., API key, JWT) when this endpoint becomes more complex.  For general IP spoofing, utilize a Web Application Firewall (WAF) capable of detecting and blocking spoofed requests.  Ensure the server is configured to properly validate source IP addresses when used for rate limiting or access control in the future."
       },
       {
         "category": "Spoofing",
-        "description": "An attacker spoofs the client's IP address in request headers (e.g., `X-Forwarded-For`). While often not reliable directly, this could be used to indirectly influence logging or other server-side logic that relies on client IP.",
+        "description": "Lack of authentication allows anyone to pretend to be a valid user (though no identity is currently established).  If the endpoint later accesses user-specific data without authentication, this becomes a critical spoofing issue.",
         "riskLevel": "Low",
-        "mitigationStrategy": "Do not rely on client-provided IP addresses for security-sensitive decisions. If IP addresses are needed, validate that the reverse proxy is configured correctly and that the `trust proxy` setting in NestJS is configured appropriately."
+        "mitigationStrategy": "Avoid relying on client-supplied information for identity.  If the endpoint is intended to be public, document this explicitly. If it's intended for authenticated users, implement authentication immediately.  If this is a 'ping' or 'health check' endpoint, ensure it exposes minimal system information."
       },
       {
         "category": "Tampering",
-        "description": "Malicious user injects malicious code or commands through input parameters in the URL, even if it's just the empty path, potentially exploiting vulnerabilities within the application logic that handles this path.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Implement robust input validation. Even with no explicit parameters, validate the request itself. Ensure proper input sanitization and encoding techniques when handling any data received. While this route seemingly has no input, consider that future versions may. Employ a global exception filter to gracefully handle any unexpected input or exceptions that may arise from invalid requests."
+        "description": "An attacker injects malicious code or special characters into the GET request's URL path, potentially causing unexpected server behavior or security vulnerabilities.",
+        "riskLevel": "Low",
+        "mitigationStrategy": "Implement input validation using NestJS's `ValidationPipe`. Even for GET requests without a payload, sanitize and validate the URL path parameters. Use `class-validator` decorators within a DTO for the expected path parameters (even if it's just checking if parameters exist or conform to a basic type).  Encoding input before using it in any internal operations can also prevent command injection."
       },
       {
         "category": "Tampering",
-        "description": "An attacker modifies the HTTP method (e.g., changes GET to POST) in an attempt to perform unintended actions.",
+        "description": "HTTP parameter pollution – an attacker injects multiple instances of the same parameter with different values in the URL. The server may interpret these values in unpredictable ways, leading to unintended consequences.",
         "riskLevel": "Low",
-        "mitigationStrategy": "Ensure that the server only processes requests matching the specified HTTP method. While NestJS handles this by default, ensure no custom middleware bypasses this check."
+        "mitigationStrategy": "Configure NestJS and the underlying Express framework to handle duplicate parameters predictably (e.g., always use the first, always use the last, or throw an error).  Validate parameters in a DTO, checking if there are unexpected repeated parameters."
       },
       {
         "category": "Repudiation",
-        "description": "A user performs an action (or attempts an action) on the endpoint, but there's no sufficient logging or auditing to prove that the action occurred or who initiated it. This can be problematic for troubleshooting or security investigations.",
+        "description": "Since there is no authentication, actions taken by this endpoint are not attributable to any specific user. If this endpoint logs or modifies data, it's impossible to trace who initiated the action.",
         "riskLevel": "Low",
-        "mitigationStrategy": "Implement comprehensive logging for all requests, including the timestamp, client IP address (if relevant and trustworthy), and HTTP method used.  Use a structured logging format (e.g., JSON) for easier analysis."
-      },
-      {
-        "category": "Repudiation",
-        "description": "Lack of transaction logging makes it impossible to trace the impact of a request (e.g. data change) through the system.",
-        "riskLevel": "Low",
-        "mitigationStrategy": "Implement auditing around any impactful operation that this GET request may be triggering, either directly or indirectly. Traceability is essential."
+        "mitigationStrategy": "Implement authentication and authorization mechanisms (e.g., JWT, OAuth2) to track user activity. Implement detailed logging with timestamps and user identities for all actions performed by this endpoint. Even if the current operation is simple, prepare for future auditability requirements."
       },
       {
         "category": "Information Disclosure",
-        "description": "The endpoint returns sensitive information in the response that should not be exposed, even if it's seemingly a harmless GET endpoint.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Carefully review the response data to ensure no sensitive information (e.g., API keys, database connection strings, internal system details) is inadvertently exposed. Implement data masking or filtering to remove sensitive data before it's sent in the response."
+        "description": "The endpoint might inadvertently expose sensitive information in the HTTP response headers or body, such as internal server paths, versions, or configuration details.",
+        "riskLevel": "Low",
+        "mitigationStrategy": "Use Helmet middleware in NestJS to set security-related HTTP headers that prevent information leakage. Review the endpoint's response to ensure it doesn't include any unnecessary or sensitive data. Implement error handling that masks internal server details from being exposed in error messages."
       },
       {
         "category": "Information Disclosure",
-        "description": "The application reveals internal pathnames, versions or configuration data via error messages.",
+        "description": "If the endpoint retrieves data from a database or other backend system, it could potentially leak sensitive information due to insufficient access controls or data sanitization.",
         "riskLevel": "Low",
-        "mitigationStrategy": "Configure a global exception filter to catch and handle all unhandled exceptions gracefully.  Replace default error messages with generic, user-friendly messages that do not expose any internal details. Disable debug mode in production. Use `helmet` to set appropriate security headers that prevent information leakage."
+        "mitigationStrategy": "Enforce the principle of least privilege for database access. Sanitize and validate all data retrieved from the database before returning it in the HTTP response. Employ an ORM with built-in security features (e.g., parameterized queries) to prevent SQL injection vulnerabilities. If this endpoint *does* interact with a database, immediate attention should be placed on securing data access."
       },
       {
         "category": "Denial of Service",
-        "description": "A large volume of requests to this endpoint could overwhelm the server's resources, leading to a denial of service. Even without malicious intent, a simple bug or unexpected traffic spike could cause this.",
+        "description": "An attacker floods the endpoint with a high volume of requests, overwhelming the server and causing it to become unavailable to legitimate users.",
         "riskLevel": "Medium",
-        "mitigationStrategy": "Implement rate limiting using a NestJS module like `@nestjs/throttler`. Configure appropriate rate limits based on expected usage patterns. Monitor server resource usage and set up alerts for unusual spikes."
+        "mitigationStrategy": "Implement rate limiting at the application level using a NestJS rate-limiting module (e.g., `nestjs-rate-limit`). Configure a Web Application Firewall (WAF) to detect and block malicious traffic patterns. Consider using a caching mechanism to reduce the load on the server."
       },
       {
         "category": "Denial of Service",
-        "description": "The endpoint relies on expensive operations (e.g., complex database queries or calculations) that can be easily triggered, potentially exhausting server resources with a small number of requests.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Optimize the endpoint's performance. Use caching mechanisms to reduce the load on the server. Employ asynchronous processing techniques to offload long-running tasks to background processes. If the database interaction is complex, use connection pooling and query optimization."
+        "description": "If the endpoint's implementation has performance bottlenecks or resource-intensive operations, an attacker could trigger them repeatedly to exhaust server resources.",
+        "riskLevel": "Low",
+        "mitigationStrategy": "Profile the endpoint's performance to identify and optimize any bottlenecks. Implement resource limits (e.g., CPU, memory) to prevent the endpoint from consuming excessive resources. Use asynchronous operations and non-blocking I/O to improve performance."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "While unlikely for a basic GET endpoint with no authentication, improper handling of the request could potentially be exploited to bypass authorization checks in other parts of the application if it's linked to more sensitive operations (e.g. session setting).",
+        "description": "Because the endpoint has no authentication, if subsequent logic inadvertently grants elevated privileges based on request characteristics (e.g., HTTP headers, IP address), an attacker could exploit this to gain unauthorized access.",
         "riskLevel": "Low",
-        "mitigationStrategy": "Enforce the principle of least privilege throughout the application. Ensure that this endpoint does not grant unintended access to privileged functionality or data. Strictly separate concerns and avoid implicit trust between different parts of the application."
-      },
-      {
-        "category": "Elevation of Privilege",
-        "description": "The endpoint inadvertently exposes functionality that can be used to modify system configurations or execute privileged commands, particularly if logging mechanisms are vulnerable to injection attacks.",
-        "riskLevel": "Low",
-        "mitigationStrategy": "Do not allow user-controlled inputs to directly affect system configurations or commands. Implement strong input validation and output encoding on all logging mechanisms to prevent injection attacks. Ensure that the application runs with the minimum necessary privileges."
+        "mitigationStrategy": "Avoid making authorization decisions based on unauthenticated request characteristics. Always validate and sanitize all input data. Implement proper authentication and authorization mechanisms to control access to sensitive resources and functionality. Regular code reviews to look for potential privilege escalation issues.\n\nThis STRIDE analysis provides a starting point for securing the specified NestJS API endpoint. As the endpoint's functionality evolves, it's essential to revisit and update this threat model accordingly."
       }
     ]
   },
@@ -83,127 +71,49 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "** An attacker spoofs the source IP address to bypass potential rate limiting mechanisms configured elsewhere in the application or infrastructure, potentially leading to resource exhaustion. Even without explicit rate limiting on *this* endpoint, reliance on IP address-based defenses elsewhere could be circumvented.",
+        "description": "** An attacker spoofs the identity of a legitimate user to gain access to the coffee list, even without valid authentication. Since no authorization is specified, they can access it.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Spoofing",
-        "description": "** An attacker crafts a request with a spoofed `User-Agent` header that mimics legitimate clients to bypass basic security checks that might be based on this header elsewhere (e.g., for anomaly detection).",
+        "description": "** An attacker spoofs the source IP address to bypass basic rate limiting or rudimentary access controls (if any are implemented at the network level).",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "** While a GET request is typically not subject to tampering in the body, an attacker could attempt to tamper with the URL parameters to cause unexpected behavior or errors. Although this particular endpoint doesn't specify any parameters, the underlying logic fetching the coffees might be vulnerable to tampering through other means (like implicit dependency on global state).",
+        "description": "** Although a GET request, the attacker tampers with URL parameters to induce unexpected behavior. This is less common with GET requests, but vulnerabilities might exist depending on how the backend processes the request. For example, `coffees/?orderBy=malicious_sql_injection`.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "** Response data is tampered with during transit (Man-in-the-Middle attack).",
+        "description": "** Man-in-the-middle (MITM) attack modifies the GET request parameters if HTTPS is not enforced.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "** No authentication or authorization means that it's impossible to reliably identify the user making the request. If a coffee is accidentally or maliciously deleted (through a different, flawed endpoint), it's impossible to trace the request back to a specific user.",
+        "description": "** A user accesses the coffee list, and there is no audit trail to prove who accessed it.  This is a repudiation issue.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "** Lack of audit logging makes it impossible to prove or disprove a user accessed the endpoint at a specific time. While this GET endpoint might seem harmless, consistent access patterns could be used to fingerprint usage and plan future attacks.",
+        "description": "** Difficulty in tracing specific requests back to their origin for debugging or security investigations.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** The endpoint exposes sensitive information about coffees (e.g., internal IDs, cost prices, stock levels) that should not be publicly available.",
+        "description": "** The endpoint accidentally exposes sensitive information about the coffees, such as internal IDs, pricing data intended only for specific user roles, or database schema details.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** Error messages returned by the endpoint may leak sensitive information about the application's internal structure, database schema, or API keys.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Denial of Service",
-        "description": "** An attacker floods the endpoint with requests, overwhelming the server and making it unavailable to legitimate users. This is a classic DDoS attack.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Denial of Service",
-        "description": "** The database query used to retrieve coffees is inefficient, and a large number of requests to the endpoint could overload the database, causing performance degradation or even database outages.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Elevation of Privilege",
-        "description": "** While less direct with a simple GET, a vulnerability in related code that uses the coffee data (e.g., a reporting function that pulls all coffee data) could be exploited after the attacker has accessed the coffee information. If that related code has an elevation of privilege vulnerability, it becomes easier to exploit knowing the data.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Elevation of Privilege",
-        "description": "** Although this endpoint doesn't require authentication, its output might be used in a subsequent endpoint that requires authentication. If this GET endpoint is vulnerable to injection (e.g., through improperly sanitized data which ends up in a template used by the authenticated endpoint), an attacker could leverage the GET endpoint to indirectly gain access to privileged data or functionality.  This is more of an indirect elevation of privilege.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      }
-    ]
-  },
-  {
-    "assetName": "GET coffees/:id",
-    "assetType": "endpoint",
-    "threats": [
-      {
-        "category": "Spoofing",
-        "description": "** An attacker spoofs the identity of an authorized user and gains access to coffee details. Since there's no authentication, this is inherently easy.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Spoofing",
-        "description": "** A malicious client can impersonate a legitimate client application (e.g., sending requests with modified headers claiming to be a trusted source).",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Tampering",
-        "description": "** An attacker modifies the `id` parameter in the request URL to access or attempt to access data for a different coffee than intended.  While not technically tampering with the *data*, it's tampering with the request to access unauthorized resources.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Tampering",
-        "description": "**  An attacker replays a captured request with a modified `id` to retrieve data from a different coffee.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Repudiation",
-        "description": "** A user denies accessing a specific coffee's details, and there's no audit trail to prove otherwise.  Because there's no authentication, there's no way to tie the request to a specific user.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Repudiation",
-        "description": "** The system administrator denies having accessed the coffee details, making auditing and debugging difficult.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Information Disclosure",
-        "description": "** An attacker intercepts the response containing sensitive coffee details (e.g., ingredients, pricing) during transmission.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Information Disclosure",
-        "description": "** The API returns more information than is necessary (over-exposure), potentially revealing internal details or fields that should not be accessible.  For example, database IDs, creation timestamps, etc.",
+        "description": "** Stack traces or error messages are exposed to the client in case of exceptions, revealing internal implementation details.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
@@ -215,21 +125,99 @@
       },
       {
         "category": "Denial of Service",
-        "description": "** An attacker sends requests with extremely long or malformed `id` parameters, causing excessive processing and potentially crashing the server.",
+        "description": "** An attacker sends requests with extremely long or complex query parameters, consuming excessive server resources during parsing or processing.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "**  (Unlikely given the GET request, but consider it for future development) An attacker somehow uses the `id` parameter to perform actions they shouldn't be able to, for example, modifying other users' data through a poorly constructed database query (SQL injection is unlikely with an ORM but worth considering). Because there is no authentication, there is inherently no privilege to elevate.  However, in the future, if more features are added without authentication, this becomes a critical issue.",
+        "description": "** Since there's no authentication/authorization, there's technically no privilege to elevate to. However, if in the future, you add more complex features (like allowing modifications), exploiting this currently open endpoint could lead to elevated privileges. For example, a malicious user might try to change the URL to access other restricted endpoints.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "** If this endpoint were to later be expanded to include *editing* the coffee data without authentication, an attacker could trivially modify coffee details.",
+        "description": "** If an attacker is able to somehow modify the `CoffeesController` code, and inject malicious code, they could use the open `GET` endpoint as a \"backdoor\" to run arbitrary code with the service's permissions.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
+      }
+    ]
+  },
+  {
+    "assetName": "GET coffees/:id",
+    "assetType": "endpoint",
+    "threats": [
+      {
+        "category": "Spoofing",
+        "description": "An attacker spoofs the identity of another user to access coffee details they are not authorized to view. Since there's no authentication, *anyone* can make the request.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Implement authentication using NestJS's `@AuthGuard` and appropriate authentication strategies (e.g., JWT, OAuth). Define roles and permissions, ensuring that only authorized users can access coffee details."
+      },
+      {
+        "category": "Spoofing",
+        "description": "An attacker spoofs the Origin header in a CORS request to bypass CORS restrictions.",
+        "riskLevel": "Low",
+        "mitigationStrategy": "Properly configure CORS using the `@nestjs/platform-express` package and the `cors` option in your `main.ts` file or a global middleware. Only allow trusted origins."
+      },
+      {
+        "category": "Tampering",
+        "description": "An attacker manipulates the `:id` parameter in the URL to potentially access unintended data (e.g., through integer overflow or negative IDs, assuming your database uses integers as IDs).",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement input validation using NestJS's `ParseIntPipe` or a custom pipe on the `:id` parameter to ensure it's a valid positive integer.  Additionally, use an ORM like TypeORM or Prisma which offer built-in protection against SQL injection attacks when querying with the ID.  Sanitize input when constructing database queries if not using an ORM."
+      },
+      {
+        "category": "Tampering",
+        "description": "Data tampering occurs in transit if the connection is not secured.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Enforce HTTPS for all communication. Implement HSTS (HTTP Strict Transport Security) headers to prevent downgrade attacks."
+      },
+      {
+        "category": "Repudiation",
+        "description": "A user accesses coffee data, but there's no logging or auditing to prove they accessed the endpoint. This makes it difficult to track unauthorized access or investigate security incidents.",
+        "riskLevel": "Low",
+        "mitigationStrategy": "Implement logging and auditing of all API requests, including user information (once authentication is implemented), timestamp, endpoint accessed, and any errors. Use a centralized logging system for easier analysis."
+      },
+      {
+        "category": "Repudiation",
+        "description": "If an error occurs, the system does not log enough information for effective debugging and security incident investigations.",
+        "riskLevel": "Low",
+        "mitigationStrategy": "Implement comprehensive error logging with sufficient context, including the request body, headers, and stack traces. Be mindful of sensitive data when logging errors."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "The endpoint returns more data than necessary, potentially exposing sensitive information about the coffee object (e.g., internal cost, supplier details, etc.) that should not be accessible to the public.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Define a specific DTO (Data Transfer Object) for the response of the endpoint. Only include the necessary properties in the DTO. Use class-transformer decorators to control serialization."
+      },
+      {
+        "category": "Information Disclosure",
+        "description": "If the database throws an unhandled exception, the error message may contain sensitive database schema information.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement global exception filters to catch unhandled exceptions and return generic error messages to the client, while logging the detailed error internally."
+      },
+      {
+        "category": "Denial of Service",
+        "description": "An attacker floods the endpoint with a large number of requests, overwhelming the server and making it unavailable to legitimate users.",
+        "riskLevel": "High",
+        "mitigationStrategy": "Implement rate limiting using a NestJS rate limiting module (e.g., `@nestjs/throttler`) or a reverse proxy (e.g., Nginx) in front of the NestJS application.  Set reasonable rate limits based on expected traffic patterns."
+      },
+      {
+        "category": "Denial of Service",
+        "description": "An attacker sends requests with extremely large or malformed `:id` values, potentially causing resource exhaustion in the application or database.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement input validation and sanitization on the `:id` parameter to prevent excessively large or malformed values from reaching the database or application logic. Set limits on the length or complexity of the ID."
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "While seemingly less relevant to a simple GET request without authentication, a vulnerability in the framework or a misconfiguration could allow an attacker to execute arbitrary code on the server by exploiting the request handling process. This is less direct but possible with complex systems.",
+        "riskLevel": "Low",
+        "mitigationStrategy": "Keep all dependencies (NestJS framework, libraries, and Node.js runtime) up-to-date with the latest security patches. Regularly review and audit the code for potential vulnerabilities. Follow security best practices for NestJS development."
+      },
+      {
+        "category": "Elevation of Privilege",
+        "description": "Code injection attacks are not usually related to GET requests. However, improper handling of the ID could result in unexpected results, especially if the ID is used to dynamically construct database queries without proper escaping.",
+        "riskLevel": "Low",
+        "mitigationStrategy": "Use an ORM like TypeORM or Prisma that automatically handles parameterization of queries to prevent SQL injection. If not using an ORM, use parameterized queries instead of constructing queries with string concatenation or interpolation.  Always validate the ID to ensure it is an expected format before using it in a query.\n\nThis STRIDE model provides a starting point for securing your `GET /coffees/:id` endpoint. Remember to continuously review and update your threat model as your application evolves and new threats emerge. The absence of authentication is a significant risk factor and should be addressed immediately."
       }
     ]
   },
@@ -239,73 +227,73 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "** An attacker spoofs the identity of a valid user or service to post unauthorized coffee entries. Since no authentication is specified, *anyone* can send a POST request.",
+        "description": "** A malicious actor spoofs another user's identity to create a coffee entry.  Since there's no authentication, anyone can claim to be anyone.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Spoofing",
-        "description": "** An attacker spoofs the origin of the request by manipulating the `Origin` or `Referer` header to potentially bypass some basic, naive checks (if implemented elsewhere but relying on these headers). While not inherently a robust security measure, it could be an initial attempt at exploitation.",
+        "description": "** A malicious actor sends requests with a spoofed IP address to bypass rate limiting (if implemented later).",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "** Malicious user modifies the request payload (e.g., coffee name, price, description) to inject malicious data or bypass validation.",
+        "description": "** Malicious user modifies request payload to inject malicious data into the coffee entry (e.g., script injection, SQL injection if data isn't properly handled later).",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "** The client-side app sends correct information, but data is altered in transit (Man-in-the-Middle attack) if the connection is not secure.",
+        "description": "** Data modification in transit via Man-in-the-Middle (MITM) attack if HTTPS isn't used.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "** A user submits a coffee entry, and later denies having done so. Since there is no authentication and likely no logging, proving who submitted the data is impossible.",
+        "description": "** A user claims they didn't create a specific coffee entry, and there's no way to prove otherwise (due to lack of authentication and logging).",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "** Insufficient audit logging makes it difficult to track who created or modified coffee entries. Even with authentication, a lack of detailed logs hinders accountability.",
+        "description": "** An administrator cannot be held accountable for modifications to the coffee entries.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** An attacker gains access to the server logs containing sensitive information about the request (e.g., API keys, potentially exposed data if validation is lax).",
+        "description": "**  The coffee entries might contain sensitive information (e.g., internal IDs, details about the coffee bean source which may reveal confidential supplier relationships) that are unintentionally exposed through API responses (if the GET endpoints are not carefully designed).",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** Lack of proper error handling might leak sensitive data. If the request causes an error, the error message might reveal information about the server's internal workings.",
+        "description": "**  Error messages may expose underlying server information (e.g., database version, internal paths) to an attacker.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Denial of Service",
-        "description": "** An attacker floods the endpoint with a large number of requests to exhaust server resources, making the API unavailable to legitimate users.",
+        "description": "** A malicious actor floods the `POST /coffees` endpoint with a large number of requests, overwhelming the server and making it unavailable to legitimate users.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Denial of Service",
-        "description": "** Sending excessively large request payloads to consume server resources (memory, CPU) during processing.",
+        "description": "**  A carefully crafted request with an extremely large payload can exhaust server resources.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "** Although seemingly not directly related to this specific endpoint *without* authentication in place, an attacker might exploit a vulnerability in the application to gain unauthorized access to other parts of the system. For example, improper input validation that allows command injection.",
+        "description": "**  Without authentication and authorization, anyone can create coffee entries, potentially impersonating an administrator or creating entries with elevated privileges (if such privileges exist later).  Since there is no current concept of elevated privileges, this is currently low risk, but can become an issue if admin functionality is added later.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "** An attacker gains elevated privileges by exploiting a SQL injection vulnerability through a poorly constructed query if an ORM or database access layer is improperly secured. Even though the immediate endpoint doesn't *seem* to be directly writing into the database, any associated services handling the POST request data *could* be vulnerable.",
+        "description": "**  If the coffee creation logic interacts with other services or databases, a vulnerability there (e.g., SQL injection in the database) could be exploited through the `POST /coffees` endpoint to gain unauthorized access to those other services.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       }
@@ -317,75 +305,75 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "An attacker spoofs the identity of another user and attempts to modify the coffee information using their ID.  Since no authentication is implemented, anyone can claim to be anyone.",
+        "description": "An attacker spoofs the identity of a legitimate user by guessing or brute-forcing the `id` parameter, allowing them to modify a coffee entry that doesn't belong to them. Since there's no authentication or authorization, any valid ID could be targeted.\n  - Risk: High\n  - Mitigation: Implement authentication and authorization.  Use a JWT-based authentication strategy with NestJS Passport.  Implement a Guard that verifies the user has permissions to modify the coffee entry associated with the given `id`. Even with authentication, ensure that the user authenticated is authorized to modify that specific resource.",
         "riskLevel": "High",
-        "mitigationStrategy": "Implement authentication using NestJS Passport, JWT, or another secure authentication mechanism. Ensure proper validation and authorization checks before updating the coffee details."
+        "mitigationStrategy": "Implement authentication and authorization.  Use a JWT-based authentication strategy with NestJS Passport.  Implement a Guard that verifies the user has permissions to modify the coffee entry associated with the given `id`. Even with authentication, ensure that the user authenticated is authorized to modify that specific resource."
       },
       {
         "category": "Spoofing",
-        "description": "An attacker spoofs the Origin header to bypass potential CORS restrictions on a weakly configured application that relies solely on the Origin header for CORS.",
+        "description": "An attacker replays a valid request. Although not strictly spoofing the user, without proper protection, an attacker could potentially re-use a previously valid request to change the details of the coffee item multiple times.\n  - Risk: Low\n  - Mitigation: While full replay protection might be overkill for this basic endpoint, consider implementing a simple nonce or timestamp verification in the backend.  This could involve storing the last timestamp of a successful PATCH request for a given coffee ID.",
         "riskLevel": "Low",
-        "mitigationStrategy": "Implement robust CORS configuration within the NestJS application using the `@nestjs/platform-express` module's `enableCors` method or a dedicated CORS middleware.  Validate and sanitize the Origin header correctly if relying on it.  Ideally, avoid solely relying on the Origin header and use proper authentication/authorization."
+        "mitigationStrategy": "While full replay protection might be overkill for this basic endpoint, consider implementing a simple nonce or timestamp verification in the backend.  This could involve storing the last timestamp of a successful PATCH request for a given coffee ID."
       },
       {
         "category": "Tampering",
-        "description": "Malicious user modifies request payload (e.g., `name`, `brand`, `flavors`) to insert harmful data, potentially leading to data corruption or exploitation of vulnerabilities.",
+        "description": "Malicious user modifies the request body to include invalid data, leading to application errors or data corruption if not properly validated. This is particularly concerning because the endpoint lacks input validation.\n  - Risk: High\n  - Mitigation: Implement robust input validation using NestJS's `ValidationPipe` in conjunction with `class-validator` decorators within a Data Transfer Object (DTO). Define a `UpdateCoffeeDto` with validation rules for each field (e.g., `IsString()`, `IsInt()`, `MinLength()`, `Max()`, etc.). Apply the `ValidationPipe` globally or to this specific endpoint.",
         "riskLevel": "High",
-        "mitigationStrategy": "Implement robust input validation using NestJS `ValidationPipe` with `class-validator` decorators on Data Transfer Objects (DTOs). Define strict data types, length constraints, and allowed values. Sanitize input to remove potentially harmful characters."
+        "mitigationStrategy": "Implement robust input validation using NestJS's `ValidationPipe` in conjunction with `class-validator` decorators within a Data Transfer Object (DTO). Define a `UpdateCoffeeDto` with validation rules for each field (e.g., `IsString()`, `IsInt()`, `MinLength()`, `Max()`, etc.). Apply the `ValidationPipe` globally or to this specific endpoint."
       },
       {
         "category": "Tampering",
-        "description": "An attacker tampers with the ID in the URL, trying to modify a coffee entity belonging to another user, if no authorization checks exist.",
-        "riskLevel": "High",
-        "mitigationStrategy": "Implement authorization checks to ensure users can only modify the coffee entities they own or are authorized to modify.  Use appropriate guards to enforce these authorization rules within the NestJS controller."
-      },
-      {
-        "category": "Repudiation",
-        "description": "A user denies making changes to the coffee data, making it difficult to track accountability and resolve disputes.  Without logging, there's no record of who changed what.",
+        "description": "An attacker intercepts the request (Man-in-the-Middle attack) and alters the request payload before it reaches the server.\n  - Risk: Medium\n  - Mitigation: Enforce HTTPS for all communication to encrypt data in transit. Use Helmet middleware to set security-related HTTP headers, including HSTS (HTTP Strict Transport Security) to prevent downgrade attacks.",
         "riskLevel": "Medium",
-        "mitigationStrategy": "Implement detailed logging of all changes to coffee data, including the user ID making the change, the timestamp, and the specific fields modified. Use a dedicated logging library like `winston` or `pino` for structured logging."
+        "mitigationStrategy": "Enforce HTTPS for all communication to encrypt data in transit. Use Helmet middleware to set security-related HTTP headers, including HSTS (HTTP Strict Transport Security) to prevent downgrade attacks."
       },
       {
         "category": "Repudiation",
-        "description": "An administrator makes an erroneous change to the data but later denies making the change because the system does not have auditing functionality enabled.",
+        "description": "A user denies making changes to a coffee entry, and there is no audit trail to prove otherwise, leading to accountability issues. Since there are no user credentials required for the request, anyone could claim they were not the person who modified the record.\n  - Risk: Medium\n  - Mitigation: Implement an audit logging system.  Log user actions (e.g., coffee updates) along with timestamps and user IDs (after implementing authentication). Use NestJS's built-in dependency injection to inject a logging service into the `CoffeesController`.  Consider using a database trigger or event listener to automatically create audit records.",
+        "riskLevel": "Medium",
+        "mitigationStrategy": "Implement an audit logging system.  Log user actions (e.g., coffee updates) along with timestamps and user IDs (after implementing authentication). Use NestJS's built-in dependency injection to inject a logging service into the `CoffeesController`.  Consider using a database trigger or event listener to automatically create audit records."
+      },
+      {
+        "category": "Repudiation",
+        "description": "System administrator accidentally modifies a coffee entry and is not able to determine how the change occurred.\n  - Risk: Low\n  - Mitigation: Implement detailed logging for administrative activities. This could be done by adding a specific log level for administrative changes and storing these logs separately.",
         "riskLevel": "Low",
-        "mitigationStrategy": "Implement an audit log system to track administrative changes, which could be achieved by creating an auditing middleware for NestJs."
+        "mitigationStrategy": "Implement detailed logging for administrative activities. This could be done by adding a specific log level for administrative changes and storing these logs separately."
       },
       {
         "category": "Information Disclosure",
-        "description": "An attacker exploits the endpoint to gain unauthorized access to sensitive information about the coffee, its ingredients, or other related data that should not be publicly accessible. While simple coffee data might not seem sensitive, details could reveal information about suppliers or internal processes.",
+        "description": "An attacker uses the endpoint (or manipulates it) to gain unintended access to sensitive information about the coffee entry or related data (e.g., internal identifiers, potentially sensitive metadata if it exists). This is especially true if error messages expose internal details.\n  - Risk: Medium\n  - Mitigation:  Ensure that error messages are generic and do not expose sensitive internal information. Implement proper exception handling using NestJS's exception filters to catch and format errors before they are returned to the client. Never include stack traces in production responses.",
         "riskLevel": "Medium",
-        "mitigationStrategy": "Ensure that only necessary data is returned in the API response.  Implement proper data masking and filtering to hide sensitive fields. Use dedicated DTOs for API responses to explicitly define the data returned."
+        "mitigationStrategy": "Ensure that error messages are generic and do not expose sensitive internal information. Implement proper exception handling using NestJS's exception filters to catch and format errors before they are returned to the client. Never include stack traces in production responses."
       },
       {
         "category": "Information Disclosure",
-        "description": "Stack traces containing sensitive application information are exposed in error responses due to unhandled exceptions or improper error handling.",
+        "description": "An attacker successfully exploits a database vulnerability through SQL injection or similar, potentially leaking coffee data or even other application data. While this patch request is unlikely to cause this, it is important to remember that the database layer is still exposed through the API.\n  - Risk: Medium\n  - Mitigation:  Use an ORM (like TypeORM) with parameterized queries or prepared statements to prevent SQL injection vulnerabilities. Regularly update dependencies to patch known security vulnerabilities. Scan the database for known vulnerabilities.",
         "riskLevel": "Medium",
-        "mitigationStrategy": "Implement a global exception filter in NestJS to catch all unhandled exceptions.  Log detailed error information internally but return generic, user-friendly error messages to the client, avoiding the exposure of sensitive information.  Disable debug mode in production."
+        "mitigationStrategy": "Use an ORM (like TypeORM) with parameterized queries or prepared statements to prevent SQL injection vulnerabilities. Regularly update dependencies to patch known security vulnerabilities. Scan the database for known vulnerabilities."
       },
       {
         "category": "Denial of Service",
-        "description": "An attacker sends a large number of requests to the endpoint, overwhelming the server and making it unavailable to legitimate users.",
+        "description": "An attacker repeatedly sends PATCH requests to the endpoint with invalid data, overwhelming the server's resources and causing it to become unavailable. Since there is no rate limiting, an attacker could send numerous invalid PATCH requests.\n  - Risk: Medium\n  - Mitigation: Implement rate limiting using NestJS's built-in features or a middleware like `nestjs-rate-limiter`. Configure the rate limiter to restrict the number of requests from a single IP address within a specific time window.",
         "riskLevel": "Medium",
-        "mitigationStrategy": "Implement rate limiting using a NestJS middleware or a dedicated library like `nestjs-rate-limiter`. Configure appropriate rate limits based on expected usage patterns. Consider using a reverse proxy like Nginx or Cloudflare to further protect against DDoS attacks."
+        "mitigationStrategy": "Implement rate limiting using NestJS's built-in features or a middleware like `nestjs-rate-limiter`. Configure the rate limiter to restrict the number of requests from a single IP address within a specific time window."
       },
       {
         "category": "Denial of Service",
-        "description": "An attacker sends a request with a large or complex payload that consumes excessive server resources, leading to a denial of service.",
+        "description": "An attacker floods the endpoint with PATCH requests, exhausting the server's resources (CPU, memory, database connections).\n  - Risk: Medium\n  - Mitigation: Implement connection limiting on the server, if possible. Use caching mechanisms (e.g., Redis) to reduce database load. Consider deploying the application behind a load balancer that can handle DDoS attacks.",
         "riskLevel": "Medium",
-        "mitigationStrategy": "Implement payload size limits using NestJS middleware or a reverse proxy. Use appropriate validation rules to restrict the size and complexity of request data."
+        "mitigationStrategy": "Implement connection limiting on the server, if possible. Use caching mechanisms (e.g., Redis) to reduce database load. Consider deploying the application behind a load balancer that can handle DDoS attacks."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "Without authorization checks, any user can modify any coffee resource. This effectively elevates a regular user's privileges to that of an administrator or resource owner.",
+        "description": "An attacker exploits a vulnerability (e.g., in input validation or authorization logic, if it existed) to gain unauthorized access to functionality or data that they are not permitted to access. Since this patch request has no authorization, it is inherently vulnerable.\n  - Risk: Critical\n  - Mitigation: As mentioned previously, implement a robust authentication and authorization mechanism with role-based access control (RBAC). Ensure that the authorization checks are correctly implemented to prevent unauthorized access to protected resources. Thoroughly test the authorization logic to identify and fix any vulnerabilities.",
         "riskLevel": "Critical",
-        "mitigationStrategy": "Implement a role-based access control (RBAC) or attribute-based access control (ABAC) system. Use NestJS guards to enforce authorization policies, ensuring that only authorized users can modify specific coffee entities."
+        "mitigationStrategy": "As mentioned previously, implement a robust authentication and authorization mechanism with role-based access control (RBAC). Ensure that the authorization checks are correctly implemented to prevent unauthorized access to protected resources. Thoroughly test the authorization logic to identify and fix any vulnerabilities."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "A malicious user bypasses validation and injects arbitrary code into database queries, leading to arbitrary code execution or data manipulation with elevated privileges.",
-        "riskLevel": "High",
-        "mitigationStrategy": "Use an ORM (TypeORM, Prisma) with built-in security features like parameterized queries to prevent SQL injection.  Avoid constructing raw SQL queries from user input.  Enforce strict input validation and sanitization."
+        "description": "Although unlikely, a flaw in the ORM or database interaction could lead to an attacker gaining elevated privileges within the database itself.\n  - Risk: Low\n  - Mitigation: Follow ORM best practices for security. Regularly audit database access and permissions. Use the principle of least privilege when granting database access to application components. Always use strong and unique passwords for all database users.",
+        "riskLevel": "Low",
+        "mitigationStrategy": "Follow ORM best practices for security. Regularly audit database access and permissions. Use the principle of least privilege when granting database access to application components. Always use strong and unique passwords for all database users."
       }
     ]
   },
@@ -395,73 +383,73 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "** An attacker spoofs the identity of an authorized user to delete a coffee entry they are not authorized to delete. Since there's no authorization specified, any user (or attacker) can attempt to delete any coffee, regardless of ownership.",
+        "description": "** An attacker spoofs the identity of an authorized user, potentially deleting a coffee record they shouldn't have access to.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Spoofing",
-        "description": "** Request is sent from a spoofed IP address attempting to hide the origin of the malicious activity.",
+        "description": "** The API endpoint receives a forged request with a modified `Host` header, potentially leading to incorrect routing or other unexpected behavior.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "** Attacker modifies the `:id` parameter in the request URL to delete a different coffee entry than intended (e.g., by incrementing or decrementing the ID).",
+        "description": "** An attacker modifies the `id` parameter in the URL to attempt to delete a different coffee record than intended. Since there's no authorization in place, any `id` will be attempted.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "** Man-in-the-middle (MITM) attack where an attacker intercepts the DELETE request and changes the `:id` before it reaches the server.",
+        "description": "**  (If the `id` were somehow part of a signed URL or cookie): An attacker modifies the signed value associated with the `id`, potentially bypassing integrity checks (if any exist downstream).",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "** A user deletes a coffee entry and later denies doing so.  Without proper logging, it is difficult to prove the user performed the action.",
+        "description": "** After a coffee record is deleted, there is no audit trail or logging to identify who performed the deletion.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "**  A non-repudiation issue arises if an administrator deletes a coffee entry without proper authorization, leading to disputes about the legitimacy of the action.",
+        "description": "** A user denies deleting the coffee record, claiming their account was compromised, but there's insufficient evidence to prove otherwise.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** Although this is a DELETE endpoint, improper error handling could inadvertently expose sensitive information about the application or the coffee entry (e.g., internal database schema, other coffee entry details).",
+        "description": "** The DELETE request itself reveals information about the existence of coffee records. An attacker can infer which IDs are valid by observing the response codes.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "**  An attacker leverages timing attacks to determine the existence of specific coffee entries by measuring the time taken to process DELETE requests for different IDs.  If a DELETE request for an existing ID takes longer, it reveals its existence.",
+        "description": "** Error messages from the DELETE operation expose sensitive internal information about the database structure or application logic.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Denial of Service",
-        "description": "** An attacker floods the endpoint with DELETE requests, exhausting server resources and preventing legitimate users from deleting coffee entries.",
+        "description": "** An attacker repeatedly sends DELETE requests to the endpoint with different `id` values, potentially overwhelming the server and causing it to become unavailable.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Denial of Service",
-        "description": "** An attacker sends DELETE requests with extremely large or malformed `:id` values, potentially causing database query performance issues or application crashes.",
+        "description": "** An attacker exploits a vulnerability in the database query used to delete the coffee record, causing it to consume excessive resources and slowing down the server.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "** The DELETE endpoint is inadvertently used to delete other types of data besides coffee entries (e.g., user accounts) due to a flaw in the application logic or database schema. This is unlikely given the stated endpoint but highlights a potential issue in similar situations.",
+        "description": "** An attacker bypasses authorization checks (if any) and gains administrative privileges, allowing them to delete any coffee record, even those they are not authorized to delete. (Similar to tampering, but focused on privilege escalation).",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "**  If the coffee entry deletion logic somehow interacts with other parts of the application, a vulnerability in the DELETE endpoint could be exploited to gain elevated privileges within the system (e.g., by manipulating session data or accessing restricted resources).",
+        "description": "** If the `id` is somehow used to access other resources (e.g., files, other databases) without proper validation and authorization, an attacker could potentially elevate their privileges to access restricted resources.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       }
@@ -473,73 +461,73 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "** An attacker spoofs a coffee record by creating a new coffee with a title or brand that mimics an existing, popular coffee to mislead users or manipulate recommendations.",
+        "description": "** An attacker spoofs the identity of an authorized user or service to create, read, update, or delete coffee records, potentially inserting malicious data or gaining unauthorized access to sensitive coffee information (e.g., internal brand details).",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Spoofing",
-        "description": "** Attackers could spoof the request origin to bypass authentication or authorization checks in the coffee creation/update endpoints. This could lead to unauthorized creation or modification of coffee records.",
+        "description": "**  An attacker spoofs the `Flavor` entity during creation or association, leading to misclassification or injection of malicious data through the relationship.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "** An attacker modifies the `recommendations` field to artificially inflate the popularity of a particular coffee. This could be done directly through database manipulation (if access is gained) or through exploiting a vulnerable endpoint.",
+        "description": "** An attacker modifies coffee records (title, brand, recommendations, flavors) without authorization, leading to data corruption, inaccurate reporting, or misrepresentation of coffee offerings.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "** An attacker modifies the `title` or `brand` fields to inject malicious code (e.g., XSS payload) if these fields are displayed without proper sanitization in the application's UI.",
+        "description": "** An attacker manipulates the 'recommendations' count, artificially inflating or deflating the perceived popularity of certain coffee products. This could be for malicious advertising, competitive sabotage, or manipulating user perception.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "** A user falsely claims they didn't modify the `recommendations` field or create a particular coffee entry. Without proper auditing, it's difficult to prove their actions.",
+        "description": "** A user performs malicious actions (e.g., deleting a coffee record) and denies having done so, making it difficult to trace the origin of the malicious activity.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "**  It's difficult to track who added which flavor association to a coffee. If there's a malicious flavor added, it's hard to attribute blame or identify the source.",
+        "description": "** A coffee brand denies having added/modified a specific coffee's `flavor` relationships if a conflict or data breach occurs.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "**  The `Coffee` entity data, including `title`, `brand`, `recommendations`, and associated `flavors`, is exposed to unauthorized users due to insufficient access controls or a vulnerability in the application's API.",
+        "description": "** Sensitive coffee data (e.g., internal brand details, ingredients, cost information - although not explicitly present in the provided entity definition, consider related entities) is exposed to unauthorized parties due to insufficient access controls or vulnerabilities in the application.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** Sensitive information about coffee preferences or recommendations could be inferred by analyzing the relationship between coffees and flavors. This could potentially violate user privacy.",
+        "description": "**  An attacker exploits vulnerabilities in the application or database to directly access the underlying database and exfiltrate coffee data, including `title`, `brand`, `recommendations`, and flavor relationships.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Denial of Service",
-        "description": "** An attacker floods the coffee creation endpoint with requests, creating a large number of coffee entries and potentially overloading the database or other resources.",
+        "description": "** An attacker floods the application with requests to create, read, update, or delete coffee records, overwhelming the system and causing it to become unavailable to legitimate users.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Denial of Service",
-        "description": "** An attacker crafts a malicious request that causes the ORM (TypeORM) to generate a very complex query, leading to excessive database resource consumption and potential performance degradation. This could target the many-to-many relationship with `Flavor`.",
+        "description": "**  An attacker manipulates the relationship between `Coffee` and `Flavor` entities, causing a large number of unnecessary joins, which can degrade performance and lead to denial of service.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "** An attacker exploits a vulnerability in the application logic or ORM configuration to gain elevated privileges, allowing them to access or modify coffee records that they are not authorized to access. For example, manipulating the join table directly.",
+        "description": "** An attacker exploits a vulnerability to gain unauthorized access to administrative functions for managing coffee data, allowing them to create, modify, or delete coffee records with elevated privileges.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "** An attacker injects malicious SQL code into the application, potentially gaining unauthorized access to the database or other sensitive information. (SQL Injection).",
+        "description": "** An attacker leverages a vulnerability in the ORM or database driver to execute arbitrary SQL commands, gaining full access to the database and potentially elevating their privileges within the system.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       }
@@ -551,73 +539,43 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "** An attacker could spoof (impersonate) an authorized user or service and modify the `Flavor` data, potentially altering existing flavors or creating malicious ones (e.g., associating flavors with inappropriate coffee types, injecting code into the `name` field).  This relies on a compromised authentication or authorization mechanism *outside* of the entity definition itself, but it directly impacts the data within the entity.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Spoofing",
-        "description": "** Spoofing the data source itself. Imagine if the database connection string was exposed or could be manipulated, allowing an attacker to point the application to a malicious database populated with fake `Flavor` data. This could lead to incorrect information being displayed or used by the application.",
+        "description": "** An attacker spoofs the ID of a `Flavor` during a request to associate it with a coffee. This could allow them to falsely associate an unintended flavor with a coffee, potentially impacting pricing, inventory management, or customer expectations.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "**  Unauthorized modification of `Flavor` names or associations with coffees in the database. This could result in misleading information being displayed to users or incorrect product classifications.  For example, changing \"Chocolate\" to \"Ch0c0lat3\" or associating a flavor with the wrong set of coffees.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Tampering",
-        "description": "** Mass modification of flavor data through a compromised API endpoint.  For example, an attacker could update all `Flavor` entities with a malicious payload or simply corrupt the data to cause application instability.",
+        "description": "** An attacker modifies the `name` of a `Flavor` in the database, either directly (SQL injection, compromised account) or indirectly through vulnerabilities in the application logic. This could lead to mislabeling of flavors, incorrect search results, and potential legal issues if flavors are inaccurately represented (e.g., allergens).",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "** A user/service makes changes to `Flavor` data (e.g., updates the `name` field or modifies the coffee associations) but denies having done so, and there's no audit trail to prove otherwise. This makes it difficult to investigate security incidents or resolve data integrity issues.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Repudiation",
-        "description": "** Deletion of `Flavor` data without proper authorization or logging. Someone could delete a flavor and deny doing so, leading to data loss and potential business disruption.",
+        "description": "** An administrator or malicious user modifies or deletes a `Flavor` record, then denies having done so. Without proper auditing, it's difficult to determine who made the change and hold them accountable.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** Unauthorized access to `Flavor` data, potentially revealing internal business information or exposing data that could be used for malicious purposes (e.g., understanding popular flavor combinations for competitor analysis).  This threat considers direct access to the database or unintended leakage via API responses.",
+        "description": "** The `name` or `id` of a `Flavor` is exposed to unauthorized users, either through a vulnerable API endpoint, insecure logging, or a database breach. While seemingly innocuous, this information can be combined with other data to profile customer preferences and habits. Even indirect disclosure through API responses or error messages can be harmful.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** Improper handling of error messages or debug logs that could leak sensitive information about the database schema or data contents (e.g., SQL injection vulnerabilities could expose `Flavor` data in error messages).",
+        "description": "** Relationship information between `Coffee` and `Flavor` entities is leaked (e.g. through API endpoints that expose relationships) to unauthorized parties, potentially revealing popular flavor combinations and sensitive business data.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Denial of Service",
-        "description": "** An attacker could overload the system with requests to retrieve or modify `Flavor` data, causing a denial of service for legitimate users. For example, sending a large number of requests to retrieve all flavors.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Denial of Service",
-        "description": "** A specially crafted query against the `Flavor` entity (e.g., via a vulnerable API endpoint) could consume excessive database resources, leading to a denial of service. This is related to potential ORM performance issues or lack of proper query optimization.",
+        "description": "** An attacker floods the system with requests to create or retrieve `Flavor` records, overloading the database or application server. While unlikely, this could impact availability and performance for legitimate users.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "** Exploitation of a vulnerability (e.g., a SQL injection flaw in a query that uses the `Flavor` entity) to gain elevated privileges within the application or the database. This could allow an attacker to bypass access controls and perform unauthorized actions.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Elevation of Privilege",
-        "description": "** Abusing the `ManyToMany` relationship between `Flavor` and `Coffee` to escalate privileges. Imagine a user with limited access to coffee details could, through manipulating the `Flavor` relationship, indirectly access more coffee data than they are normally permitted to see.",
+        "description": "** An attacker exploits a vulnerability in the application to gain unauthorized access to modify or delete `Flavor` records. This could happen due to SQL injection in a query related to flavors or due to insufficient authorization checks when editing flavor details.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       }
@@ -629,73 +587,43 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "** An attacker spoofs the identity of a legitimate user or service to create or modify event data. For example, injecting malicious event data claiming it came from a trusted source, leading to incorrect processing or decisions based on that data.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Spoofing",
-        "description": "** An attacker spoofs an event to trigger specific actions or bypass security controls.",
+        "description": "** An attacker spoofs an event source and creates fake events with manipulated data that appears legitimate. This could lead to incorrect processing or malicious actions based on false information in the `payload`.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "**  An attacker modifies the `payload` data of an event to manipulate application behavior or gain unauthorized access to information. For example, altering sensitive data fields within the `payload` to escalate privileges or circumvent business logic.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Tampering",
-        "description": "** Unauthorized modification of the `name` or `type` fields to trigger unintended actions or bypass business logic, leading to data corruption or system instability.",
+        "description": "** An attacker modifies the `payload` data of an existing event in the database directly (e.g., via SQL injection if vulnerable) or during transmission. This could lead to data corruption, manipulation of application logic, or privilege escalation.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "** A user or system denies creating or modifying an event, making it difficult to trace the source of an action or identify malicious activity.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Repudiation",
-        "description": "**  Lack of non-repudiation mechanisms makes it difficult to prove the occurrence of an event and its content, hindering legal or compliance efforts.",
+        "description": "** A legitimate user performs an action that triggers an event, but later denies performing that action. Without proper auditing, it's difficult to prove the user initiated the event and its associated `payload` data.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** Unauthorized access to sensitive data within the `payload` of an event.  This could include Personally Identifiable Information (PII), credentials, or other confidential data. Because the `payload` is a `Record<string, any>`, it could potentially hold anything.",
+        "description": "** Sensitive information contained in the `payload` is exposed to unauthorized users. This could occur through direct database access, application vulnerabilities (e.g., unauthenticated API endpoints), or insufficient access controls.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "**  Exposure of event data to unintended recipients during transmission or storage due to inadequate security measures.",
+        "description": "** The `type` and `name` fields contain sensitive metadata that can be exploited by an attacker to learn about the system's internal architecture and functionality. This information could then be used to launch more targeted attacks.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Denial of Service",
-        "description": "** An attacker floods the system with malicious or excessive event data, overwhelming resources and causing a denial of service.  Large `payload` sizes can exacerbate this.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Denial of Service",
-        "description": "** Exploitation of vulnerabilities in the event processing logic to cause resource exhaustion or system crashes.  For example, crafting a specific event `type` or `name` that triggers an infinite loop in the application.",
+        "description": "** An attacker floods the system with a large number of events containing excessively large `payload` data, overwhelming the database and causing a denial of service.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "** An attacker exploits vulnerabilities in the event processing logic to gain elevated privileges or execute unauthorized commands on the system.  For example, injecting malicious code into the `payload` that is then executed with higher privileges.",
-        "riskLevel": "Medium",
-        "mitigationStrategy": "Mitigation strategy not specified."
-      },
-      {
-        "category": "Elevation of Privilege",
-        "description": "** An attacker manipulates the event `type` or `name` to bypass authorization checks and access resources or data they are not authorized to access.",
+        "description": "** An attacker manipulates the `payload` data to gain elevated privileges within the application. For example, the `payload` might influence authorization decisions or be used to bypass access controls.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       }
@@ -707,73 +635,73 @@
     "threats": [
       {
         "category": "Spoofing",
-        "description": "** Lack of consistent authentication mechanisms across all controllers and routes, allowing an attacker to impersonate legitimate users or services. Imagine an attacker gains access to the system and utilizes functionality which is not behind any authentication method.",
+        "description": "** Lack of consistent authentication mechanisms across all controllers and endpoints allows unauthenticated users to access protected resources.  Since we only know about AppModule and CoffeesController, it is possible other controllers lack authentication entirely.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Spoofing",
-        "description": "** Weak or predictable JWT signing keys or algorithms, making it possible to forge JWT tokens for unauthorized access.",
+        "description": "** Inconsistent use of authentication providers across different services or modules leading to users being able to spoof identities within certain parts of the application. For example, one service might use a local database for authentication while another relies on an external IdP with a potential mismatch in user identifiers.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "** Lack of consistent input validation across all controllers and data entities, allowing attackers to manipulate data passed to the application.",
+        "description": "** Lack of robust input validation allows attackers to modify data passed to the application, potentially affecting data integrity and system behavior. This vulnerability can be widespread if validation is not applied consistently to all incoming data.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Tampering",
-        "description": "**  Lack of integrity checks on configuration files or environment variables, leading to unauthorized modifications of critical application settings (e.g., database connection strings, API keys).",
+        "description": "** Missing integrity checks on data persisted to the database. An attacker could directly modify the database records (if they gain access), bypassing the application's input validation and business logic.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "** Insufficient logging of security-relevant events (authentication failures, authorization failures, data modifications, etc.), making it difficult to trace actions back to specific users.",
+        "description": "** Insufficient audit logging makes it difficult to trace user actions and identify the source of security incidents, hindering accountability and incident response efforts. Specifically, important events like authentication attempts, data modifications, and administrative actions are not logged sufficiently.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Repudiation",
-        "description": "** Lack of audit trails for data modifications within the Coffee, Flavor, and Event entities, hindering the ability to identify the origin of changes.",
+        "description": "**  Lack of secure session management (if sessions are used) allows users to deny actions they performed using a compromised or manipulated session ID. If the application isn't stateless (e.g. using JWT), this is a valid concern.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** Unhandled exceptions and stack traces exposed to the client, revealing sensitive information about the application's internal workings and potential vulnerabilities.",
+        "description": "** Exposing sensitive configuration data (e.g., API keys, database passwords) in environment variables or configuration files accessible from the application code.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Information Disclosure",
-        "description": "** Insecure storage of sensitive data (e.g., API keys, passwords) in plain text within configuration files, environment variables, or the database.",
+        "description": "** Verbose error messages and stack traces reveal sensitive information about the application's internal workings to attackers. For example, database connection strings, file paths, or library versions may be exposed.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Denial of Service",
-        "description": "** Lack of rate limiting on critical API endpoints (e.g., authentication, data creation), allowing attackers to overwhelm the application with requests.",
+        "description": "** Lack of rate limiting allows attackers to overwhelm the application with excessive requests, leading to service unavailability. All six endpoints could be vulnerable if no rate-limiting middleware is in place.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Denial of Service",
-        "description": "** Uncontrolled resource consumption (e.g., memory leaks, CPU exhaustion) due to inefficient code or lack of resource limits.",
+        "description": "** Uncontrolled resource consumption (e.g., memory leaks, CPU exhaustion) caused by inefficient code or large data processing tasks. This can lead to the application becoming unresponsive or crashing.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "** Inadequate authorization checks, allowing users to access or modify data that they are not authorized to access.",
+        "description": "** Inadequate role-based access control (RBAC) allows users to access or modify resources they are not authorized to.  If user roles are not correctly defined or enforced, users could potentially escalate their privileges.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       },
       {
         "category": "Elevation of Privilege",
-        "description": "** Dependency vulnerabilities in installed npm packages, potentially allowing attackers to exploit known security flaws to gain elevated privileges.",
+        "description": "**  Vulnerable dependencies with known privilege escalation vulnerabilities can be exploited by attackers to gain elevated privileges within the application.",
         "riskLevel": "Medium",
         "mitigationStrategy": "Mitigation strategy not specified."
       }
