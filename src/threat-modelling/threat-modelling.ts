@@ -9,9 +9,7 @@ import { ConfigService } from '@nestjs/config'; // Assuming ConfigModule is set 
 // Load environment variables early
 dotenv.config();
 
-// --- Interfaces (remain mostly the same) ---
-
-interface ControllerEndpoint {
+type ControllerEndpoint = {
   path: string;
   method: string;
   handler: string;
@@ -20,23 +18,23 @@ interface ControllerEndpoint {
   // e.g., roles?: string[]; apiOperationSummary?: string;
   dto?: string; // Simplified DTO detection might be complex
   description?: string; // Can potentially be extracted from @ApiOperation decorator
-}
+};
 
-interface ControllerInfo {
+type ControllerInfo = {
   name: string;
   basePath: string; // Added for better path reconstruction
   endpoints: ControllerEndpoint[];
-}
+};
 
-interface ModuleInfo {
+type ModuleInfo = {
   name: string;
   controllers: ControllerInfo[];
   providers: string[];
   imports: string[];
   exports: string[];
-}
+};
 
-interface ThreatModel {
+type ThreatModel = {
   assetName: string;
   assetType: 'endpoint' | 'data' | 'process';
   threats: {
@@ -51,9 +49,7 @@ interface ThreatModel {
     riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
     mitigationStrategy: string;
   }[];
-}
-
-// --- Refactored StrideModelGenerator Class ---
+};
 
 export class StrideModelGenerator {
   private appStructure: ModuleInfo[] = [];
