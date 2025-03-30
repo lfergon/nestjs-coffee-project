@@ -17,6 +17,7 @@ This module provides automated STRIDE threat modeling for NestJS applications us
 - Node.js 16 or higher
 - NestJS 8 or higher
 - Google AI API key (set as environment variable `GOOGLE_API_KEY`)
+- https://googleapis.github.io/js-genai/
 
 ## Running the Tool
 
