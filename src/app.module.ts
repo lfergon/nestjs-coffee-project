@@ -9,15 +9,11 @@ import * as process from 'process';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
 import * as Joi from '@hapi/joi';
-import { DevtoolsModule } from '@nestjs/devtools-integration';
 
 const DATABASE_TYPE = 'postgres';
 
 @Module({
   imports: [
-    DevtoolsModule.register({
-      http: process.env.NODE_ENV !== 'production',
-    }),
     ConfigModule.forRoot({
       validationSchema: Joi.object({
         DATABASE_HOST: Joi.required(),

@@ -69,6 +69,26 @@ $ pnpm run test:e2e
 $ pnpm run test:cov
 ```
 
+## Security Features
+
+### STRIDE Threat Modeling
+
+This project includes an integrated security threat modeling tool that uses Google AI to analyze endpoints, data entities, and application architecture to identify potential vulnerabilities.
+
+To generate a threat model report:
+
+```bash
+# Production mode (requires Google AI API key)
+$ export GOOGLE_API_KEY=your_api_key_here
+$ pnpm run threat-model -- --output-path ./reports
+
+# Development mode (no API key needed, uses mock responses)
+$ export USE_MOCK_RESPONSE=true
+$ pnpm run threat-model -- --output-path ./reports
+```
+
+For detailed instructions, see [src/threat-modelling/README.md](src/threat-modelling/README.md).
+
 ## Migration TypeORM example
 ```javascript
 /* typeorm-cli.config.ts */

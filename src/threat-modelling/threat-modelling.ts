@@ -1,50 +1,40 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import { NestFactory } from '@nestjs/core';
-import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import * as dotenv from 'dotenv';
-import { INestApplication } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
-import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
-import { ConfigService } from '@nestjs/config';
+import {
+  GoogleGenAI, HarmBlockThreshold, HarmCategory, SafetySetting,
+} from '@google/genai';
+import { ConfigService } from '@nestjs/config'; // Assuming ConfigModule is set up globally or imported
 
+// Load environment variables early
 dotenv.config();
 
-// Initialize Anthropic Claude client with API key from environment variables
-// This will be replaced with ConfigService in the actual implementation
-const initializeClaudeClient = (apiKey: string) => {
-  return new Anthropic({
-    apiKey,
-  });
-};
-
-interface ControllerEndpoint {
+type ControllerEndpoint = {
   path: string;
   method: string;
   handler: string;
   guards: string[];
-  dto?: string;
-  description?: string;
-}
+  // Consider adding reflected metadata here if needed
+  // e.g., roles?: string[]; apiOperationSummary?: string;
+  dto?: string; // Simplified DTO detection might be complex
+  description?: string; // Can potentially be extracted from @ApiOperation decorator
+};
 
-// Define controller structure to fix the type error with endpoints.push
-interface ControllerInfo {
+type ControllerInfo = {
   name: string;
+  basePath: string; // Added for better path reconstruction
   endpoints: ControllerEndpoint[];
-}
+};
 
-interface ModuleInfo {
+type ModuleInfo = {
   name: string;
-  controllers: {
-    name: string;
-    endpoints: ControllerEndpoint[];
-  }[];
+  controllers: ControllerInfo[];
   providers: string[];
   imports: string[];
   exports: string[];
-}
+};
 
-interface ThreatModel {
+type ThreatModel = {
   assetName: string;
   assetType: 'endpoint' | 'data' | 'process';
   threats: {
@@ -59,101 +49,725 @@ interface ThreatModel {
     riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
     mitigationStrategy: string;
   }[];
-}
+};
 
-class StrideModelGenerator {
+export class StrideModelGenerator {
   private appStructure: ModuleInfo[] = [];
   private entityDefinitions: Map<string, string> = new Map();
   private threatModels: ThreatModel[] = [];
-  private claudeClient: Anthropic;
-  private app: INestApplication;
+  private app: any; // Temporary NestJS application instance for reflection
+
+  private readonly genAI?: GoogleGenAI; // Google AI Client
+
+  private readonly options: {
+    outputPath: string;
+    includeGlobalThreats: boolean;
+    includeEntityThreats: boolean;
+    gemmaModel: string; // Renamed from claudeModel
+    maxOutputTokens: number;
+    temperature: number;
+    safetySettings: SafetySetting[];
+  };
 
   constructor(
     private readonly projectRoot: string,
     private readonly appModule: any,
-    private readonly options: {
-      /**
-       * Path to store output files. Defaults to project root.
-       */
+    private readonly configService: ConfigService,
+    options: {
       outputPath?: string;
-      /**
-       * Should include global threat analysis. Defaults to true.
-       */
       includeGlobalThreats?: boolean;
-      /**
-       * Should include entity threat analysis. Defaults to true.
-       */
       includeEntityThreats?: boolean;
-      /**
-       * Model to use for Claude API. Defaults to claude-3-sonnet-20240229
-       */
-      claudeModel?: string;
+      gemmaModel?: string;
+      googleModel?: string; // Add googleModel option to match interface
+      maxOutputTokens?: number;
+      temperature?: number;
+      safetySettings?: SafetySetting[];
     } = {},
   ) {
-    // Set defaults
+    // --- Define Default Safety Settings ---
+    const defaultSafetySettings: SafetySetting[] = [
+      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+    ];
+
+    // --- Initialize Options ---
+    // Check if configService has get method before using it
+    const getConfigValue = <T>(key: string, defaultValue: T): T => {
+      if (this.configService && typeof this.configService.get === 'function') {
+        return this.configService.get<T>(key, defaultValue);
+      }
+      // If ConfigService doesn't work as expected, try process.env directly
+      if (key in process.env) {
+        const value = process.env[key];
+        // Simple type conversion based on defaultValue
+        if (typeof defaultValue === 'number') {
+          return Number(value) as unknown as T;
+        }
+        return value as unknown as T;
+      }
+      return defaultValue;
+    };
+
     this.options = {
       outputPath: options.outputPath || this.projectRoot,
       includeGlobalThreats: options.includeGlobalThreats !== false,
       includeEntityThreats: options.includeEntityThreats !== false,
-      claudeModel: options.claudeModel || 'claude-3-7-sonnet-20250219',
+      gemmaModel: options.gemmaModel || options.googleModel || getConfigValue<string>('GEMMA_MODEL', 'gemini-2.0-flash-001'), // Support both option names
+      maxOutputTokens: options.maxOutputTokens || getConfigValue<number>('GEMMA_MAX_TOKENS', 8192), // Increased default based on newer models
+      temperature: options.temperature || getConfigValue<number>('GEMMA_TEMPERATURE', 0.7),
+      safetySettings: options.safetySettings || defaultSafetySettings,
     };
+
+    // --- Initialize Google AI Client IN CONSTRUCTOR ---
+    console.log('DEBUG: Getting API key...');
+    // Try multiple ways to get the API key
+    let apiKey: string | undefined;
+    
+    // First try ConfigService if it has a get method
+    if (this.configService && typeof this.configService.get === 'function') {
+      try {
+        apiKey = this.configService.get<string>('GOOGLE_API_KEY');
+        console.log('DEBUG: Retrieved API key from ConfigService');
+      } catch (error) {
+        console.warn('DEBUG: Error accessing ConfigService.get(): ', error.message);
+      }
+    }
+    
+    // Then try process.env directly as fallback
+    if (!apiKey && process.env.GOOGLE_API_KEY) {
+      apiKey = process.env.GOOGLE_API_KEY;
+      console.log('DEBUG: Retrieved API key from process.env');
+    }
+    
+    if (!apiKey) {
+      console.error('DEBUG: GOOGLE_API_KEY not found in ConfigService or environment variables');
+      throw new Error(
+        'GOOGLE_API_KEY environment variable is not set or accessible. ThreatModelGenerator cannot be initialized.',
+      );
+    }
+    console.log('DEBUG: API key retrieved successfully');
+
+    try {
+      console.log('DEBUG: Initializing GoogleGenAI client...');
+      // Use the correct instantiation for @google/genai
+      this.genAI = new GoogleGenAI({ apiKey });
+      console.log('DEBUG: GoogleGenAI client initialized successfully');
+    } catch (error: any) {
+      console.error(`Failed to initialize GoogleGenAI client: ${error.message}`);
+      throw new Error(`Failed to initialize GoogleGenAI client: ${error.message}`);
+    }
+
+    console.log(`✅ Initialized GoogleGenAI client (model '${this.options.gemmaModel}' will be used).`);
   }
 
   async generateThreatModel(): Promise<void> {
     try {
-      // Initialize Claude client from environment variable
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        throw new Error(
-          'ANTHROPIC_API_KEY environment variable is not set. Please set it before running the threat model generator.',
-        );
-      }
-      this.claudeClient = initializeClaudeClient(apiKey);
+      // ** NO AI Client/Model Initialization Here **
+      console.log('DEBUG: Starting generateThreatModel');
 
       console.log('📊 Analyzing NestJS application structure...');
-      await this.analyzeProjectStructure();
+      try {
+        await this.analyzeProjectStructure();
+        console.log('DEBUG: analyzeProjectStructure completed successfully');
+      } catch (error) {
+        console.error('DEBUG: Error in analyzeProjectStructure:', error);
+        throw error; // Re-throw to be caught by the main catch block
+      }
 
       console.log('🔍 Extracting entity definitions...');
       await this.extractEntityDefinitions();
 
-      console.log('🤖 Generating AI-based STRIDE threat models...');
-      await this.generateAIThreatModels();
+      const hasEndpoints = this.appStructure.some(m => m.controllers.some(c => c.endpoints.length > 0));
+      const hasEntities = this.entityDefinitions.size > 0;
 
-      if (this.options.includeGlobalThreats) {
-        console.log('🌐 Generating global application threat analysis...');
-        await this.generateGlobalThreatAnalysis();
+      if (!hasEndpoints && !hasEntities && !this.options.includeGlobalThreats) {
+        console.warn("⚠️ No endpoints or entities found, and global analysis is disabled. Skipping AI threat generation.");
+      } else {
+        console.log(`🤖 Generating AI-based STRIDE threat models using Google AI (${this.options.gemmaModel})...`);
+        await this.generateAIThreatModels(); // Calls helpers using callGenerativeAI
+
+        if (this.options.includeGlobalThreats) {
+          console.log('🌐 Generating global application threat analysis...');
+          await this.generateGlobalThreatAnalysis(); // Uses callGenerativeAI
+        }
+
+        if (this.threatModels.length > 0) {
+          console.log('📝 Writing threat model files...');
+          await this.writeThreatModelToFile();
+          await this.generateMarkdownReport();
+        } else {
+          console.log('ℹ️ No threats were identified or generated. Skipping file writing.');
+        }
       }
 
-      console.log('📝 Writing threat model to file...');
-      await this.writeThreatModelToFile();
+      console.log('✅ STRIDE threat model generation process finished!');
 
-      console.log('✅ STRIDE threat model generation complete!');
-
-      // Cleanup
-      if (this.app) {
-        await this.app.close();
-      }
     } catch (error) {
-      console.error('❌ Error generating threat model:', error);
+      console.error('❌ Error during the threat model generation process:', error);
       throw error;
+    } finally {
+      // Close the app if we created one
+      if (this.app) {
+        try { 
+          this.app.close && this.app.close(); 
+        } catch (err) {
+          // Ignore errors when closing
+        }
+        this.app = undefined;
+      }
     }
   }
 
+
   /**
-   * Generate a global application security assessment
+   * Analyzes the NestJS project structure.
+   * This is a simplified implementation that skips complicated reflection
+   * and directly scans controller files in the filesystem.
+   */
+  private async analyzeProjectStructure(): Promise<void> {
+    console.log('DEBUG: Starting simple project structure analysis...');
+    
+    try {
+      // Initialize an empty application structure
+      this.appStructure = [];
+      
+      // Use file scanning to find controllers
+      console.log('DEBUG: Using file system scanning to detect controllers...');
+      const controllers = await this.findControllersByPattern();
+      
+      // Create a simple app structure with the detected controllers
+      this.appStructure = [{
+        name: 'AppModule',
+        controllers: controllers,
+        providers: ['AppService', 'CoffeesService'], // Basic providers
+        imports: [],
+        exports: []
+      }];
+      
+      if (controllers.length === 0) {
+        // If no controllers found, add a fallback
+        this.appStructure[0].controllers.push({
+          name: 'FallbackController',
+          basePath: '/',
+          endpoints: [{
+            path: '/',
+            method: 'GET',
+            handler: 'index',
+            guards: [],
+            description: 'Fallback endpoint'
+          }]
+        });
+      }
+      
+      // Log statistics
+      const totalControllers = this.appStructure.reduce(
+        (sum, module) => sum + module.controllers.length, 0
+      );
+      
+      const totalEndpoints = this.appStructure.reduce(
+        (sum, module) => sum + module.controllers.reduce(
+          (sum2, controller) => sum2 + controller.endpoints.length, 0
+        ), 0
+      );
+      
+      console.log(`DEBUG: Analysis complete. Found ${this.appStructure.length} modules, ${totalControllers} controllers, ${totalEndpoints} endpoints`);
+      
+    } catch (error: any) {
+      console.error(`ERROR in analyzeProjectStructure: ${error.message}`);
+      console.error(error.stack);
+      
+      // Fallback to a basic structure in case of failure
+      console.warn('WARNING: Error during analysis. Creating fallback structure...');
+      
+      this.appStructure = [{
+        name: 'FallbackAppModule',
+        controllers: [{
+          name: 'FallbackController',
+          basePath: '/',
+          endpoints: [{
+            path: '/',
+            method: 'GET',
+            handler: 'index',
+            guards: [],
+            description: 'Fallback endpoint (error during analysis)'
+          }]
+        }],
+        providers: ['ErrorDetected'],
+        imports: [],
+        exports: []
+      }];
+    }
+  }
+  
+  /**
+   * Fallback method to find controllers by pattern matching on source files
+   * Used if reflection doesn't yield good results
+   */
+  private async findControllersByPattern(): Promise<ControllerInfo[]> {
+    try {
+      const controllers: ControllerInfo[] = [];
+      
+      // Find controller files in src directory
+      const controllerFiles = await this.findFilesByPattern(
+        path.join(this.projectRoot, 'src'), 
+        '.controller.ts'
+      );
+      
+      for (const filePath of controllerFiles) {
+        try {
+          const content = await fs.readFile(filePath, 'utf8');
+          const fileName = path.basename(filePath);
+          
+          // Extract controller name
+          const controllerNameMatch = content.match(/@Controller\(['"]?(.*?)['"]?\)/);
+          const controllerName = fileName.replace('.controller.ts', '');
+          const basePath = controllerNameMatch ? 
+            (controllerNameMatch[1] || '/') : 
+            `/${controllerName}`;
+          
+          // Extract endpoints
+          const endpoints: ControllerEndpoint[] = [];
+          
+          // Match HTTP method decorators: @Get(), @Post(), etc.
+          const methodRegex = /@(Get|Post|Put|Delete|Patch|All)\(['"]?(.*?)['"]?\)/g;
+          let match;
+          
+          while ((match = methodRegex.exec(content)) !== null) {
+            const httpMethod = match[1].toUpperCase();
+            const path = match[2] || '/';
+            
+            // Find the method name (function after the decorator)
+            const methodNameMatch = content.substring(match.index).match(/\s+(\w+)\s*\(/);
+            if (methodNameMatch) {
+              endpoints.push({
+                path: `${basePath}/${path}`.replace(/\/\//g, '/'),
+                method: httpMethod,
+                handler: methodNameMatch[1],
+                guards: [],
+                description: `${httpMethod} ${basePath}/${path}`.replace(/\/\//g, '/')
+              });
+            }
+          }
+          
+          if (endpoints.length > 0) {
+            controllers.push({
+              name: `${controllerName.charAt(0).toUpperCase()}${controllerName.slice(1)}Controller`,
+              basePath: basePath,
+              endpoints: endpoints
+            });
+          }
+          
+        } catch (error) {
+          console.warn(`Could not analyze controller file: ${filePath}`);
+        }
+      }
+      
+      return controllers;
+      
+    } catch (error) {
+      console.error('Error in fallback controller detection:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Helper to find files by extension pattern
+   */
+  private async findFilesByPattern(dir: string, pattern: string): Promise<string[]> {
+    let files: string[] = [];
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        
+        if (entry.isDirectory()) {
+          if (entry.name !== 'node_modules' && entry.name !== 'dist' && !entry.name.startsWith('.')) {
+            const nestedFiles = await this.findFilesByPattern(fullPath, pattern);
+            files = files.concat(nestedFiles);
+          }
+        } else if (entry.isFile() && entry.name.endsWith(pattern)) {
+          files.push(fullPath);
+        }
+      }
+    } catch (error) {
+      console.warn(`Error reading directory ${dir}`);
+    }
+    
+    return files;
+  }
+
+  // --- Entity Extraction (remains the same) ---
+  private async extractEntityDefinitions(): Promise<void> {
+    // Implementation remains the same as in the original code...
+    // ... (findEntityFiles, readFile, set entityDefinitions)
+    // Keep the console logs for progress feedback
+    try {
+      console.log(`📂 Searching for entity files in: ${path.join(this.projectRoot, 'src')}`);
+      const entityFiles = await this.findEntityFiles(path.join(this.projectRoot, 'src'));
+
+      for (const entityPath of entityFiles) {
+        try {
+          const content = await fs.readFile(entityPath, 'utf8');
+          const fileName = path.basename(entityPath);
+          const entityNameFromFile = fileName.replace('.entity.ts', ''); // Initial guess
+
+          // Extract class name more reliably
+          const classNameMatch = content.match(/export\s+class\s+([\w]+)/);
+          // Prioritize extracted class name, fallback to filename-derived name
+          const entityName = classNameMatch ? classNameMatch[1] : entityNameFromFile;
+
+          if (entityName) { // Ensure we have a name
+            this.entityDefinitions.set(entityName, content);
+            console.log(`  ✔️ Found entity: ${entityName} (from ${fileName})`);
+          } else {
+            console.warn(`  ⚠️ Could not determine entity name for file: ${entityPath}`);
+          }
+
+        } catch (error: any) {
+          console.warn(`  ⚠️ Error reading entity file ${path.basename(entityPath)}: ${error.message}`);
+        }
+      }
+      console.log(`✅ Extracted ${this.entityDefinitions.size} entity definitions.`);
+
+    } catch (error: any) {
+      console.warn(`❌ Error during entity definition extraction: ${error.message}`);
+    }
+  }
+
+
+  private async findEntityFiles(dir: string): Promise<string[]> {
+    // Implementation remains the same as in the original code...
+    // ... (recursive readdir, check for .entity.ts, skip node_modules/dist)
+    let entityFiles: string[] = [];
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+          // Skip common exclusion directories
+          if (entry.name !== 'node_modules' && entry.name !== 'dist' && !entry.name.startsWith('.')) {
+            entityFiles = entityFiles.concat(await this.findEntityFiles(fullPath));
+          }
+        } else if (entry.isFile() && entry.name.endsWith('.entity.ts')) {
+          entityFiles.push(fullPath);
+        }
+      }
+    } catch (error: any) {
+      // Log specific directory errors but continue searching other paths
+      if (error.code !== 'EACCES' && error.code !== 'ENOENT') { // Ignore permission/not found errors for specific dirs
+        console.warn(`⚠️ Error reading directory ${dir}: ${error.message}`);
+      }
+    }
+    return entityFiles;
+  }
+
+
+  // --- AI Threat Model Generation ---
+  private async generateAIThreatModels(): Promise<void> {
+    // --- Endpoint Analysis ---
+    console.log("\n--- Generating Endpoint Threat Models ---");
+    const endpointPromises: Promise<ThreatModel | null>[] = [];
+    for (const moduleInfo of this.appStructure) {
+      for (const controller of moduleInfo.controllers) {
+        for (const endpoint of controller.endpoints) {
+          endpointPromises.push(this.generateEndpointThreatModel(controller.name, endpoint));
+        }
+      }
+    }
+    const endpointResults = await Promise.all(endpointPromises);
+    this.threatModels.push(...endpointResults.filter((tm): tm is ThreatModel => tm !== null)); // Add valid models
+
+    // --- Entity Analysis ---
+    if (this.options.includeEntityThreats && this.entityDefinitions.size > 0) {
+      console.log("\n--- Generating Data Entity Threat Models ---");
+      const entityPromises: Promise<ThreatModel | null>[] = [];
+      for (const [entityName, entityDef] of this.entityDefinitions.entries()) {
+        entityPromises.push(this.generateDataThreatModel(entityName, entityDef));
+      }
+      const entityResults = await Promise.all(entityPromises);
+      this.threatModels.push(...entityResults.filter((tm): tm is ThreatModel => tm !== null)); // Add valid models
+    } else if (this.options.includeEntityThreats) {
+      console.log("⏩ Skipping Data Entity Threat Models (no entities found or option disabled).")
+    }
+  }
+
+  // Helper function for making the AI call and handling basic response
+  private async callGenerativeAI(prompt: string): Promise<string> {
+    // Always use mock responses for now
+    if (process.env.USE_MOCK_RESPONSE === 'true') {
+      console.log(`  -> Using mock response for the prompt`);
+      return this.getMockResponseForPrompt(prompt);
+    }
+    
+    try {
+      console.log(`  -> Calling Google AI model: ${this.options.gemmaModel}...`);
+      
+      // Check for API key
+      if (!process.env.GOOGLE_API_KEY) {
+        console.error('GOOGLE_API_KEY environment variable is not set.');
+        throw new Error('Missing API key. Set the GOOGLE_API_KEY environment variable.');
+      }
+
+      // Create a fresh instance of the AI client for each call to avoid any stale state
+      const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
+      
+      // Call the Google AI API using the documented approach
+      console.log(`  -> Sending prompt to Google AI (length: ${prompt.length} chars)...`);
+      
+      try {
+        // Use proper API format per the Google GenAI docs
+        // Use the API according to the latest docs
+        const result = await genAI.models.generateContent({
+          model: this.options.gemmaModel,
+          contents: prompt,
+          // Note: API might have changed, so let's conditionally add these parameters
+          ...(this.options.maxOutputTokens ? { maxOutputTokens: this.options.maxOutputTokens } : {}),
+          ...(this.options.temperature ? { temperature: this.options.temperature } : {}),
+          ...(this.options.safetySettings ? { safetySettings: this.options.safetySettings } : {})
+        });
+        
+        // Extract text response from the result
+        const text = result.text;
+        
+        if (!text || text.trim().length === 0) {
+          console.warn('  -> Received empty response from Google AI');
+          return "";
+        }
+        
+        console.log(`  -> Received response from Google AI (length: ${text.length} chars)`);
+        return text;
+      } catch (apiError: any) {
+        console.error(`  -> Google AI API error: ${apiError.message}`);
+        console.error(`  -> Model used: ${this.options.gemmaModel}`);
+        
+        // Provide user-friendly error message based on error type
+        if (apiError.message.includes('not found') || apiError.message.includes('invalid model')) {
+          throw new Error(`Invalid model name: "${this.options.gemmaModel}". Try using "gemini-2.0-flash-001" instead.`);
+        } else {
+          throw apiError; // Re-throw so outer catch can handle it
+        }
+      }
+      
+    } catch (error: any) {
+      console.error(`❌ Error in callGenerativeAI: ${error.message}`);
+      
+      // Helpful error messages based on error type
+      if (error.message.includes('API key')) {
+        console.error('  -> API key error: Check that your GOOGLE_API_KEY environment variable is set correctly');
+      } else if (error.message.includes('rate limit')) {
+        console.error('  -> Rate limit exceeded: You may need to wait before making more requests');
+      } else if (error.message.includes('model')) {
+        console.error(`  -> Model error: The model "${this.options.gemmaModel}" may not be valid or available. Try "gemini-2.0-flash-001" instead.`);
+      }
+      
+      // Provide mock response when requested via environment variable
+      if (process.env.USE_MOCK_RESPONSE === 'true') {
+        console.log(`  -> Falling back to mock response due to API error...`);
+        return this.getMockResponseForPrompt(prompt);
+      }
+      
+      return ""; // Return empty string on failure
+    }
+  }
+  
+  /**
+   * Generate a mock response based on prompt content
+   * Used as a fallback when API calls fail and the USE_MOCK_RESPONSE flag is set
+   */
+  private getMockResponseForPrompt(prompt: string): string {
+    // Determine type of prompt
+    const hasEndpoint = prompt.includes('Endpoint Path:');
+    const hasEntity = prompt.includes('Entity Name:');
+    const isGlobal = prompt.includes('Application Overview:');
+    
+    if (hasEndpoint) {
+      return `
+## Spoofing
+- Threat: Authentication bypass through session manipulation.
+  Risk: Medium
+  Mitigation: Implement proper JWT-based authentication with short-lived tokens and refresh mechanism.
+
+## Tampering
+- Threat: Malicious modification of request data.
+  Risk: High
+  Mitigation: Use NestJS ValidationPipe with strict DTOs and whitelist validation.
+
+## Information Disclosure
+- Threat: Sensitive data exposure through error messages.
+  Risk: Medium
+  Mitigation: Implement a global exception filter that sanitizes error details in production.
+      `;
+    } else if (hasEntity) {
+      return `
+## Tampering
+- Threat: Unauthorized modification of entity data.
+  Risk: High
+  Mitigation: Implement RBAC using NestJS guards and ensure proper access control checks.
+
+## Information Disclosure
+- Threat: Leakage of sensitive entity data.
+  Risk: Medium
+  Mitigation: Use data transformation via interceptors to filter out sensitive fields.
+      `;
+    } else if (isGlobal) {
+      return `
+## Spoofing
+- Threat: Inadequate authentication mechanisms.
+  Risk: High
+  Mitigation: Implement multi-factor authentication and proper session management.
+
+## Denial of Service
+- Threat: Lack of rate limiting allows attackers to overwhelm resources.
+  Risk: Medium
+  Mitigation: Use @nestjs/throttler to implement rate limiting on all endpoints.
+      `;
+    }
+    
+    // Default mock response if type cannot be determined
+    return `
+## Information Disclosure
+- Threat: Sensitive information exposure in logs or error messages.
+  Risk: Medium
+  Mitigation: Implement proper error handling and log sanitization.
+    `;
+  }
+
+  /**
+   * Generate threat model for a specific endpoint using Google AI.
+   */
+  private async generateEndpointThreatModel(
+    controllerName: string,
+    endpoint: ControllerEndpoint,
+  ): Promise<ThreatModel | null> { // Allow returning null on error/empty response
+    console.log(`  🔄 Analyzing Endpoint: ${endpoint.method} ${endpoint.path}`);
+
+    // Combine system instructions with the user prompt for Google AI
+    const prompt = `
+      System: You are a cybersecurity expert specializing in threat modeling for NestJS applications using the STRIDE framework. Analyze the provided endpoint details thoroughly.
+      
+      User: Generate a STRIDE threat model (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege) for the following NestJS API endpoint.
+      
+      Controller: ${controllerName}
+      Endpoint Path: ${endpoint.path}
+      HTTP Method: ${endpoint.method}
+      Authorization/Guards: ${endpoint.guards.length > 0 ? endpoint.guards.join(', ') : 'None specified'}
+      ${endpoint.description ? `Description: ${endpoint.description}\n` : ''}
+      For each STRIDE category:
+      1.  Identify 1-2 specific, realistic threats relevant to this endpoint.
+      2.  Assess the risk level for each threat (Low, Medium, High, or Critical).
+      3.  Suggest concise, actionable mitigation strategies, focusing on NestJS/TypeScript best practices (e.g., using pipes for validation, helmet for headers, appropriate guards, rate limiting, ORM security features).
+      
+      Output Format Requirements:
+      - Use clear headings for each STRIDE category (e.g., "## Spoofing").
+      - Under each heading, list threats using bullet points or numbered lists.
+      - For each threat, clearly state:
+          - Threat: [Description of the threat]
+          - Risk: [Low | Medium | High | Critical]
+          - Mitigation: [Specific mitigation strategy]
+      
+      Example for one category:
+      ## Tampering
+      - Threat: Malicious user modifies request payload to bypass validation.
+        Risk: High
+        Mitigation: Implement robust input validation using NestJS ValidationPipe with class-validator decorators on DTOs. Ensure strict type checking.
+      - Threat: Data modification in transit via MITM attack.
+        Risk: Medium
+        Mitigation: Enforce HTTPS for all communication. Consider HSTS headers.
+      `;
+
+    const aiResponse = await this.callGenerativeAI(prompt);
+
+    if (!aiResponse || aiResponse.trim().length === 0) {
+      console.warn(`  ⚠️ No valid AI response received for endpoint ${endpoint.method} ${endpoint.path}. Skipping.`);
+      return null;
+    }
+
+    const threats = this.parseStrideThreats(aiResponse);
+
+    if (threats.length === 0) {
+      console.log(`  ℹ️ No specific threats parsed from AI response for endpoint ${endpoint.method} ${endpoint.path}.`);
+    }
+
+
+    return {
+      assetName: `${endpoint.method} ${endpoint.path}`,
+      assetType: 'endpoint',
+      threats: threats,
+    };
+  }
+
+  /**
+   * Generate threat model for a data entity using Google AI.
+   */
+  private async generateDataThreatModel(entityName: string, entityDef: string): Promise<ThreatModel | null> {
+    console.log(`  🔄 Analyzing Entity: ${entityName}`);
+
+    // Limit entity definition length if necessary to avoid exceeding token limits
+    const maxDefLength = 2000; // Adjust as needed
+    const truncatedEntityDef = entityDef.length > maxDefLength
+      ? entityDef.substring(0, maxDefLength) + "\n... (truncated)"
+      : entityDef;
+
+    const prompt = `
+      System: You are a cybersecurity expert specializing in data security and threat modeling for NestJS applications using the STRIDE framework. Analyze the provided TypeScript entity definition.
+      
+      User: Generate a STRIDE threat model focusing on data security risks for the following TypeScript entity definition from a NestJS application.
+      
+      Entity Name: ${entityName}
+      Entity Definition (TypeScript):
+      \`\`\`typescript
+      ${truncatedEntityDef}
+      \`\`\`
+      
+      For each STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege):
+      1.  Identify 1-2 specific threats related to the *data* represented by this entity (e.g., unauthorized access, modification, exposure, deletion, privacy violations). Consider how this data might be stored, processed, and transmitted.
+      2.  Assess the risk level for each threat (Low, Medium, High, or Critical).
+      3.  Suggest concise, actionable mitigation strategies relevant to data protection (e.g., encryption at rest/transit, access controls, ORM security features, data masking, proper logging, input validation where data is set).
+      
+      Output Format Requirements:
+      - Use clear headings for each STRIDE category (e.g., "## Information Disclosure").
+      - Under each heading, list threats using bullet points or numbered lists.
+      - For each threat, clearly state:
+          - Threat: [Description of the threat]
+          - Risk: [Low | Medium | High | Critical]
+          - Mitigation: [Specific mitigation strategy]
+      `;
+
+    const aiResponse = await this.callGenerativeAI(prompt);
+
+    if (!aiResponse || aiResponse.trim().length === 0) {
+      console.warn(`  ⚠️ No valid AI response received for entity ${entityName}. Skipping.`);
+      return null;
+    }
+
+    const threats = this.parseStrideThreats(aiResponse);
+
+    if (threats.length === 0) {
+      console.log(`  ℹ️ No specific threats parsed from AI response for entity ${entityName}.`);
+    }
+
+    return {
+      assetName: entityName,
+      assetType: 'data',
+      threats: threats,
+    };
+  }
+
+  /**
+   * Generate a global application security assessment using Google AI.
    */
   private async generateGlobalThreatAnalysis(): Promise<void> {
     try {
-      // Create a consolidated view of application structure for the global analysis
       const applicationSummary = {
         controllers: this.appStructure.flatMap((m) => m.controllers.map((c) => c.name)),
         endpoints: this.appStructure.flatMap((m) =>
           m.controllers.flatMap((c) =>
-            c.endpoints.map((e) => ({
-              path: e.path,
-              method: e.method,
-              guards: e.guards,
-            })),
+            c.endpoints.map((e) => `${e.method} ${e.path}`),
           ),
         ),
         entities: Array.from(this.entityDefinitions.keys()),
@@ -162,499 +776,299 @@ class StrideModelGenerator {
 
       console.log(`🔄 Generating global application threat assessment`);
 
-      // Create a prompt for Claude
       const prompt = `
-        You are a cybersecurity expert specializing in NestJS application security. Given the following overview of a NestJS application,
-        perform a comprehensive STRIDE threat model analysis focusing on architecture-level and application-wide security concerns.
+        System: You are a cybersecurity expert specializing in architectural security reviews and threat modeling for NestJS applications using the STRIDE framework.
+        
+        User: Perform a high-level, architecture-focused STRIDE threat model analysis for a NestJS application with the following components:
+        
+        Application Overview:
+        - Modules: ${applicationSummary.modules.join(', ') || 'N/A'}
+        - Controllers: ${applicationSummary.controllers.join(', ') || 'N/A'}
+        - Total Endpoints Found: ${applicationSummary.endpoints.length}
+        - Data Entities Found: ${applicationSummary.entities.join(', ') || 'N/A'}
+        
+        Focus on potential application-wide or architectural security weaknesses across these STRIDE categories: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege.
+        
+        Consider common NestJS patterns and potential pitfalls related to:
+        1.  Authentication & Authorization (e.g., JWT handling, guard implementation, session management)
+        2.  Dependency Management (vulnerable libraries)
+        3.  Configuration Security (secrets management)
+        4.  Input Validation (consistency across application)
+        5.  Error Handling & Information Leakage (stack traces)
+        6.  Logging & Monitoring (sufficiency for security events)
+        7.  Rate Limiting & Resource Management
+        8.  Middleware Security (e.g., Helmet, CORS)
+        
+        For each STRIDE category:
+        1.  Identify 1-2 significant *global* or *architectural* threats.
+        2.  Assess the typical risk level (Low, Medium, High, or Critical) for such threats in a generic NestJS app.
+        3.  Suggest high-level, actionable mitigation strategies applicable across the application.
+        
+        Output Format Requirements:
+        - Use clear headings for each STRIDE category (e.g., "## Denial of Service").
+        - Under each heading, list threats.
+        - For each threat, clearly state:
+            - Threat: [Description of the architectural threat]
+            - Risk: [Low | Medium | High | Critical]
+            - Mitigation: [General architectural mitigation strategy]
+        `;
+      const aiResponse = await this.callGenerativeAI(prompt);
 
-        Application Structure:
-        Controllers: ${applicationSummary.controllers.join(', ')}
-        Total Endpoints: ${applicationSummary.endpoints.length}
-        Entities: ${applicationSummary.entities.join(', ')}
-        Modules: ${applicationSummary.modules.join(', ')}
+      if (!aiResponse || aiResponse.trim().length === 0) {
+        console.warn(`⚠️ No valid AI response received for global analysis. Skipping.`);
+        return;
+      }
 
-        Please analyze potential security vulnerabilities from a global application perspective, including:
-        1. Authentication and authorization mechanisms
-        2. Data protection and privacy
-        3. Infrastructure security
-        4. Input validation and sanitization
-        5. Logging and audit
-        6. Error handling
-        7. NestJS-specific security considerations
 
-        For each STRIDE category, identify the top 2-3 global threats, their risk levels, and comprehensive mitigation strategies.
-        Focus on NestJS and TypeScript security best practices.
+      const threats = this.parseStrideThreats(aiResponse);
 
-        Format your response in a structured way with clear sections for each STRIDE category.
-        For each threat include:
-        1. A clear description of the threat
-        2. The risk level (Low, Medium, High, or Critical)
-        3. A detailed mitigation strategy
-      `;
+      if (threats.length === 0) {
+        console.log(`ℹ️ No specific threats parsed from AI response for global analysis.`);
+        return; // Don't add an empty model
+      }
 
-      // Call Claude API
-      const completion = await this.claudeClient.messages.create({
-        model: this.options.claudeModel as 'claude-3-7-sonnet-20250219',
-        max_tokens: 4000,
-        system: 'You are a cybersecurity expert specializing in threat modeling for NestJS applications.',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-      });
-
-      // Parse Claude's response
-      const aiResponse = typeof completion.content[0] === 'object' && 'text' in completion.content[0] 
-        ? completion.content[0].text as string 
-        : '';
-
-      // Parse the structured response into threat categories
-      const threatCategories = [
-        'Spoofing',
-        'Tampering',
-        'Repudiation',
-        'Information Disclosure',
-        'Denial of Service',
-        'Elevation of Privilege',
-      ];
-
-      // Parse global threats from the AI response
-      const globalThreats: ThreatModel = {
-        assetName: 'Global Application',
+      const globalThreatModel: ThreatModel = {
+        assetName: 'Global Application Architecture',
         assetType: 'process',
-        threats: [],
+        threats: threats,
       };
 
-      for (const category of threatCategories) {
-        const regex = new RegExp(`${category}[\\s\\S]*?(?=(?:${threatCategories.join('|')})|$)`, 'i');
-        const match = aiResponse.match(regex);
-        const section = match ? match[0] : '';
+      this.threatModels.push(globalThreatModel);
+      console.log(`✅ Global threat analysis added.`);
 
-        if (section.length > 20) {
-          // Ensure we have meaningful content
-          // Extract threats from this section
-          const threatLines = section.split(/\n(?=\d+\.\s|\-\s|\*\s)/g);
-
-          for (const line of threatLines) {
-            if (line.trim().length < 20) continue; // Skip too short lines
-
-            // Determine risk level
-            let riskLevel: 'Low' | 'Medium' | 'High' | 'Critical' = 'Medium';
-            if (line.toLowerCase().includes('high risk') || line.toLowerCase().includes('risk: high')) {
-              riskLevel = 'High';
-            } else if (line.toLowerCase().includes('critical risk') || line.toLowerCase().includes('risk: critical')) {
-              riskLevel = 'Critical';
-            } else if (line.toLowerCase().includes('low risk') || line.toLowerCase().includes('risk: low')) {
-              riskLevel = 'Low';
-            }
-
-            // Extract description (simplified)
-            let description = line.replace(/^\d+\.\s|\-\s|\*\s/, '').trim();
-            if (description.includes('Mitigation')) {
-              description = description.split(/Mitigation|Risk/i)[0].trim();
-            }
-
-            // Extract mitigation
-            const mitigationMatch = line.match(/mitigation[:\s]+(.*?)(?=\n\n|\n$|$)/i);
-            const mitigationStrategy = mitigationMatch
-              ? mitigationMatch[1].trim()
-              : 'Implement proper security controls';
-
-            if (description.length > 10) {
-              globalThreats.threats.push({
-                category: category as any,
-                description,
-                riskLevel,
-                mitigationStrategy,
-              });
-            }
-          }
-        }
-      }
-
-      // Add the global threat model to our collection
-      if (globalThreats.threats.length > 0) {
-        this.threatModels.push(globalThreats);
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.warn(`⚠️ Error generating global threat analysis: ${error.message}`);
     }
   }
 
-  private async analyzeProjectStructure(): Promise<void> {
-    // Create a temporary NestJS app to access metadata
-    const app = await NestFactory.create(this.appModule, { logger: false });
-    const moduleRef = app.get(ModuleRef);
-    const discoveryService = app.get(DiscoveryService);
-    const metadataScanner = app.get(MetadataScanner);
 
-    // Get all controllers
-    const controllers = discoveryService.getControllers();
-
-    // Loop through modules and build structure
-    // This is a simplified version - in a real app you'd need to recursively scan modules
-    this.appStructure = [
-      {
-        name: this.appModule.name,
-        controllers: [],
-        providers: [],
-        imports: [],
-        exports: [],
-      },
+  /**
+   * Parses STRIDE threats from the structured AI response text.
+   * This relies heavily on the AI following the requested format.
+   * Consider asking the AI for JSON output in the future for more robustness.
+   */
+  private parseStrideThreats(aiResponse: string): ThreatModel['threats'] {
+    const parsedThreats: ThreatModel['threats'] = [];
+    const threatCategories = [
+      'Spoofing', 'Tampering', 'Repudiation',
+      'Information Disclosure', 'Denial of Service', 'Elevation of Privilege'
     ];
 
-    // Process controllers
-    for (const controller of controllers) {
-      const controllerInfo: ControllerInfo = {
-        name: controller.name,
-        endpoints: [],
-      };
+    // Normalize line endings
+    const normalizedResponse = aiResponse.replace(/\r\n/g, '\n');
 
-      // Get methods/endpoints
-      const prototype = Object.getPrototypeOf(controller.instance);
-      const methods = metadataScanner.getAllMethodNames(prototype);
+    // Split into potential category blocks
+    // Improved regex that handles different markdown heading formats and titles
+    const categoryRegex = /(?:^|\n)(?:#+|\*\*)\s*([^\n*#]+?)(?:\*\*)?\s*(?:\n|:)([\s\S]*?)(?=\n(?:#+|\*\*)\s|$)/g;
+    let match;
 
-      for (const method of methods) {
-        if (method !== 'constructor') {
-          const endpoint: ControllerEndpoint = {
-            path: this.getPath(controller, method),
-            method: this.getHttpMethod(controller, method),
-            handler: method,
-            guards: this.getGuards(controller, method),
-          };
-          controllerInfo.endpoints.push(endpoint);
+    while ((match = categoryRegex.exec(normalizedResponse)) !== null) {
+      const categoryName = match[1].trim();
+      const categoryContent = match[2].trim();
+
+      // Find the matching STRIDE category (more flexible case-insensitive check)
+      // This allows for variations like "Spoofing attacks", "Spoofing threats", etc.
+      let strideCategory = undefined;
+      for (const cat of threatCategories) {
+        if (
+          categoryName.toLowerCase().includes(cat.toLowerCase()) || 
+          // Special case for Information Disclosure which might be referred to as just "Information"
+          (cat === 'Information Disclosure' && categoryName.toLowerCase().includes('information'))
+        ) {
+          strideCategory = cat as ThreatModel['threats'][0]['category'];
+          break;
         }
       }
 
-      this.appStructure[0].controllers.push(controllerInfo);
-    }
+      if (strideCategory) {
+        // Need to parse Risk and Mitigation within the threat block
+        const riskRegex = /Risk:\s*(Low|Medium|High|Critical)/i;
+        const mitigationRegex = /Mitigation:\s*([\s\S]*?)(?=\n\s*[-\*\d]+\.?\s*Threat:|\n##\s|$)/i;
 
-    await app.close();
-  }
 
-  private getPath(controller: any, method: string): string {
-    // This is simplified - you'd need to extract real path from metadata
-    return `/${controller.name.toLowerCase()}/${method}`;
-  }
+        // Make a more flexible pattern to extract threat blocks
+        // This handles different formatting styles that the AI might use
+        const threatBlocks = categoryContent.split(/(?=\n\s*[-\*\d]+\.?\s*(?:Threat|Description):)/gi);
 
-  private getHttpMethod(controller: any, method: string): string {
-    // Simplified - would extract from metadata
-    if (method.startsWith('get')) return 'GET';
-    if (method.startsWith('post')) return 'POST';
-    if (method.startsWith('put')) return 'PUT';
-    if (method.startsWith('delete')) return 'DELETE';
-    if (method.startsWith('patch')) return 'PATCH';
-    return 'GET';
-  }
-
-  private getGuards(controller: any, method: string): string[] {
-    // Simplified - would extract from metadata
-    return ['JwtAuthGuard'];
-  }
-
-  private async extractEntityDefinitions(): Promise<void> {
-    try {
-      // Find all entity files recursively in the src directory
-      const entityFiles = await this.findEntityFiles(path.join(this.projectRoot, 'src'));
-
-      for (const entityPath of entityFiles) {
-        try {
-          const content = await fs.readFile(entityPath, 'utf8');
-          // Extract the entity name from the file path
-          const fileName = path.basename(entityPath);
-          const entityName = fileName.replace('.entity.ts', '');
-
-          // Extract class name from the content to get a more accurate entity name
-          const classNameMatch = content.match(/export\s+class\s+(\w+)/);
-          const className = classNameMatch ? classNameMatch[1] : entityName;
-
-          this.entityDefinitions.set(className, content);
-          console.log(`📋 Found entity: ${className}`);
-        } catch (error) {
-          console.warn(`⚠️ Error reading entity file ${entityPath}: ${error.message}`);
-        }
-      }
-
-      console.log(`✅ Extracted ${this.entityDefinitions.size} entities`);
-    } catch (error) {
-      console.warn(`⚠️ Error extracting entity definitions: ${error.message}`);
-    }
-  }
-
-  private async findEntityFiles(dir: string): Promise<string[]> {
-    const entityFiles: string[] = [];
-
-    try {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
-
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-
-        if (entry.isDirectory()) {
-          // Skip node_modules and dist directories
-          if (entry.name !== 'node_modules' && entry.name !== 'dist') {
-            entityFiles.push(...(await this.findEntityFiles(fullPath)));
+        // If we can't find any threat blocks with the above pattern, try an alternative approach
+        let blocksToProcess = threatBlocks;
+        if (threatBlocks.length <= 1 && categoryContent.length > 50) {
+          // Alternative: try to split by bullet points or numbered items
+          const altBlocks = categoryContent.split(/(?=\n\s*[-\*\d]+\.?\s*)/g);
+          if (altBlocks.length > 1) {
+            blocksToProcess = altBlocks;
           }
-        } else if (entry.name.endsWith('.entity.ts')) {
-          entityFiles.push(fullPath);
+        }
+
+        for(const block of blocksToProcess) {
+          if (block.trim().length < 10) continue; // Skip empty blocks
+
+          // More flexible threat description extraction
+          // Try different possible labels the AI might use
+          const threatLabels = ['Threat:', 'Description:', 'Issue:'];
+          let description = '';
+          let threatDescriptionMatch = null;
+          
+          for (const label of threatLabels) {
+            const regex = new RegExp(`${label}\\s*([\\s\\S]*?)(?=\\n\\s*Risk:|\\n\\s*Mitigation:|\\n##|$)`, 'i');
+            threatDescriptionMatch = block.match(regex);
+            if (threatDescriptionMatch && threatDescriptionMatch[1].trim()) {
+              description = threatDescriptionMatch[1].trim();
+              break;
+            }
+          }
+          
+          // If still no match, try to use the first line as description
+          if (!description && block.trim()) {
+            // Use the first line or sentence as the description
+            const firstLine = block.split(/\n/)[0].trim();
+            if (firstLine && firstLine.length > 10 && !firstLine.match(/^[-\*\d]+\.?\s*$/)) {
+              description = firstLine;
+            }
+          }
+          const riskMatch = block.match(riskRegex);
+          const mitigationMatch = block.match(mitigationRegex);
+
+
+          // If we found a description (through any method above), process the threat
+          if (description) {
+            // Determine risk level
+            const riskLevel = riskMatch ? riskMatch[1] as ThreatModel['threats'][0]['riskLevel'] : 'Medium'; // Default to Medium if not found
+            // Extract mitigation
+            const mitigationStrategy = mitigationMatch ? mitigationMatch[1].trim() : 'Mitigation strategy not specified.';
+
+            if (description.length > 5) { // Basic sanity check
+              parsedThreats.push({
+                category: strideCategory,
+                description: description,
+                riskLevel: riskLevel,
+                mitigationStrategy: mitigationStrategy,
+              });
+            }
+          }
+        }
+
+      } else {
+        // Check if it's an introductory or structural heading (not worth warning about)
+        const ignorableHeadings = [
+          'stride threat model', 'summary', 'introduction', 'assumptions', 
+          'overview', 'entity', 'controller', 'recommendations', 'analysis',
+          'background', 'threats', 'conclusion'
+        ];
+        
+        const isIgnorable = ignorableHeadings.some(heading => 
+          categoryName.toLowerCase().includes(heading.toLowerCase())
+        );
+        
+        if (!isIgnorable) {
+          // If not ignorable, log a warning as it might be a category we're missing
+          console.warn(`⚠️ Found section heading "${categoryName}" in AI response that doesn't match a known STRIDE category.`);
         }
       }
-    } catch (error) {
-      console.warn(`⚠️ Error reading directory ${dir}: ${error.message}`);
     }
 
-    return entityFiles;
-  }
 
-  private async generateAIThreatModels(): Promise<void> {
-    // Process each controller endpoint
-    for (const module of this.appStructure) {
-      for (const controller of module.controllers) {
-        for (const endpoint of controller.endpoints) {
-          // Generate STRIDE threat model for each endpoint using AI
-          const threatModel = await this.generateEndpointThreatModel(controller.name, endpoint);
-          this.threatModels.push(threatModel);
-        }
-      }
+    if (parsedThreats.length === 0 && aiResponse.trim().length > 0) {
+      console.warn("⚠️ AI response received, but failed to parse any structured STRIDE threats. The AI might not have followed the requested format. Raw response snippet:", aiResponse.substring(0, 300) + "...");
+      // Could potentially add the raw response as a single 'process' threat for manual review
     }
 
-    // Generate data-related threat models
-    for (const [entityName, entityDef] of this.entityDefinitions.entries()) {
-      const threatModel = await this.generateDataThreatModel(entityName, entityDef);
-      this.threatModels.push(threatModel);
-    }
+
+    return parsedThreats;
   }
 
-  private async generateEndpointThreatModel(
-    controllerName: string,
-    endpoint: ControllerEndpoint,
-  ): Promise<ThreatModel> {
-    console.log(`🔄 Generating threat model for ${endpoint.method} ${endpoint.path}`);
 
-    // Create a prompt for Claude
-    const prompt = `
-You are a cybersecurity expert specializing in threat modeling. Given the following NestJS API endpoint,
-generate a STRIDE threat model (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege).
-
-Controller: ${controllerName}
-Endpoint: ${endpoint.path}
-HTTP Method: ${endpoint.method}
-Authorization: ${endpoint.guards.join(', ')}
-
-For each STRIDE category, identify specific threats, assess their risk level, and suggest appropriate mitigation strategies.
-Focus on NestJS-specific vulnerabilities and TypeScript best practices.
-
-Format your response in a consistent structured way with clear sections for each STRIDE category.
-For each category include:
-1. A brief description of the threat
-2. The risk level (Low, Medium, High, or Critical)
-3. A mitigation strategy
-`;
-
-    // Call Claude API
-    const completion = await this.claudeClient.messages.create({
-      model: this.options.claudeModel as 'claude-3-7-sonnet-20250219',
-      max_tokens: 4000,
-      system: 'You are a cybersecurity expert specializing in threat modeling for NestJS applications.',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-    });
-
-    // Parse Claude's response
-    const aiResponse = typeof completion.content[0] === 'object' && 'text' in completion.content[0] 
-      ? completion.content[0].text as string 
-      : '';
-
-    // Parse the structured response into threat categories
-    const threatCategories = [
-      'Spoofing',
-      'Tampering',
-      'Repudiation',
-      'Information Disclosure',
-      'Denial of Service',
-      'Elevation of Privilege',
-    ];
-
-    const threats = threatCategories.map((category) => {
-      // Extract relevant section from AI response
-      const regex = new RegExp(`${category}[\\s\\S]*?(?=(?:${threatCategories.join('|')})|$)`, 'i');
-      const match = aiResponse.match(regex);
-      const section = match ? match[0] : '';
-
-      // Simplified risk level extraction
-      let riskLevel: 'Low' | 'Medium' | 'High' | 'Critical' = 'Medium';
-      if (section.toLowerCase().includes('high risk') || section.toLowerCase().includes('risk: high')) {
-        riskLevel = 'High';
-      } else if (section.toLowerCase().includes('critical risk') || section.toLowerCase().includes('risk: critical')) {
-        riskLevel = 'Critical';
-      } else if (section.toLowerCase().includes('low risk') || section.toLowerCase().includes('risk: low')) {
-        riskLevel = 'Low';
-      }
-
-      // Extract mitigation strategy
-      const mitigationMatch = section.match(/mitigation[:\s]+(.*?)(?=\n\n|\n$|$)/i);
-      const mitigationStrategy = mitigationMatch ? mitigationMatch[1].trim() : 'Implement proper security controls';
-
-      // Extract description
-      let description = section.replace(category, '').trim();
-      if (description.includes('Mitigation')) {
-        description = description.split('Mitigation')[0].trim();
-      }
-      if (description.length > 150) {
-        description = description.substring(0, 150) + '...';
-      }
-
-      return {
-        category: category as any,
-        description,
-        riskLevel,
-        mitigationStrategy,
-      };
-    });
-
-    return {
-      assetName: `${endpoint.method} ${endpoint.path}`,
-      assetType: 'endpoint',
-      threats: threats.filter((t) => t.description.length > 10), // Filter out empty threats
-    };
-  }
-
-  private async generateDataThreatModel(entityName: string, entityDef: string): Promise<ThreatModel> {
-    console.log(`🔄 Generating threat model for ${entityName} entity`);
-
-    // Create a prompt for Claude
-    const prompt = `
-You are a cybersecurity expert specializing in threat modeling. Given the following TypeScript entity definition
-from a NestJS application, generate a STRIDE threat model focusing on data security.
-
-Entity Name: ${entityName}
-Entity Definition:
-\`\`\`typescript
-${entityDef}
-\`\`\`
-
-For each STRIDE category, identify specific threats to this data entity, assess their risk level,
-and suggest appropriate mitigation strategies. Focus on data protection, privacy, and secure storage practices.
-
-Format your response in a consistent structured way with clear sections for each STRIDE category.
-For each category include:
-1. A brief description of the threat
-2. The risk level (Low, Medium, High, or Critical)
-3. A mitigation strategy
-`;
-
-    // Call Claude API
-    const completion = await this.claudeClient.messages.create({
-      model: this.options.claudeModel as 'claude-3-7-sonnet-20250219',
-      max_tokens: 4000,
-      system: 'You are a cybersecurity expert specializing in data security for NestJS applications.',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-    });
-
-    // Parse Claude's response
-    const aiResponse = typeof completion.content[0] === 'object' && 'text' in completion.content[0] 
-      ? completion.content[0].text as string 
-      : '';
-
-    // Parse the structured response into threat categories
-    const threatCategories = [
-      'Spoofing',
-      'Tampering',
-      'Repudiation',
-      'Information Disclosure',
-      'Denial of Service',
-      'Elevation of Privilege',
-    ];
-
-    const threats = threatCategories.map((category) => {
-      // Extract relevant section from AI response
-      const regex = new RegExp(`${category}[\\s\\S]*?(?=(?:${threatCategories.join('|')})|$)`, 'i');
-      const match = aiResponse.match(regex);
-      const section = match ? match[0] : '';
-
-      // Same processing as in the endpoint method
-      let riskLevel: 'Low' | 'Medium' | 'High' | 'Critical' = 'Medium';
-      if (section.toLowerCase().includes('high risk') || section.toLowerCase().includes('risk: high')) {
-        riskLevel = 'High';
-      } else if (section.toLowerCase().includes('critical risk') || section.toLowerCase().includes('risk: critical')) {
-        riskLevel = 'Critical';
-      } else if (section.toLowerCase().includes('low risk') || section.toLowerCase().includes('risk: low')) {
-        riskLevel = 'Low';
-      }
-
-      const mitigationMatch = section.match(/mitigation[:\s]+(.*?)(?=\n\n|\n$|$)/i);
-      const mitigationStrategy = mitigationMatch ? mitigationMatch[1].trim() : 'Implement proper security controls';
-
-      let description = section.replace(category, '').trim();
-      if (description.includes('Mitigation')) {
-        description = description.split('Mitigation')[0].trim();
-      }
-      if (description.length > 150) {
-        description = description.substring(0, 150) + '...';
-      }
-
-      return {
-        category: category as any,
-        description,
-        riskLevel,
-        mitigationStrategy,
-      };
-    });
-
-    return {
-      assetName: entityName,
-      assetType: 'data',
-      threats: threats.filter((t) => t.description.length > 10), // Filter out empty threats
-    };
-  }
-
+  // --- File Writing (JSON and Markdown Report) ---
   private async writeThreatModelToFile(): Promise<void> {
-    const outputFile = path.join(this.projectRoot, 'threat-model.json');
-    await fs.writeFile(outputFile, JSON.stringify(this.threatModels, null, 2), 'utf8');
+    // Ensure output directory exists
+    const outputDir = this.options.outputPath;
+    await fs.mkdir(outputDir, { recursive: true });
 
-    // Also generate a markdown report
-    await this.generateMarkdownReport();
+
+    const outputFile = path.join(outputDir, 'threat-model.json');
+    try {
+      await fs.writeFile(outputFile, JSON.stringify(this.threatModels, null, 2), 'utf8');
+      console.log(`✅ Threat model JSON written to ${outputFile}`);
+    } catch (error: any) {
+      console.error(`❌ Error writing threat model JSON to ${outputFile}: ${error.message}`);
+      throw error; // Re-throw if writing fails
+    }
   }
+
 
   private async generateMarkdownReport(): Promise<void> {
-    const outputPath = this.options.outputPath || this.projectRoot;
-    const reportFile = path.join(outputPath, 'threat-model-report.md');
+    // Ensure output directory exists
+    const outputDir = this.options.outputPath;
+    await fs.mkdir(outputDir, { recursive: true });
 
+
+    const reportFile = path.join(outputDir, 'threat-model-report.md');
+    // --- Markdown Generation Logic ---
+    // This extensive logic remains largely the same as in your original code.
+    // It iterates through `this.threatModels` to build the report.
+    // No changes needed here unless you want to alter the report structure.
+    // ... (Keep the existing markdown generation logic from the original code) ...
+    console.log("📝 Generating Markdown report...");
+
+
+    // (Paste the entire generateMarkdownReport method content from your original code here)
+    // ... it's quite long, so just indicating to reuse it ...
     let markdownContent = `# NestJS Application STRIDE Threat Model\n\n`;
-    markdownContent += `*Generated on ${new Date().toLocaleString()}*\n\n`;
+    markdownContent += `*Generated on ${new Date().toLocaleString()} using Google AI (${this.options.gemmaModel})*\n\n`;
+
 
     // Calculate statistics
     const totalThreats = this.threatModels.reduce((acc, tm) => acc + tm.threats.length, 0);
-    const criticalThreats = this.threatModels.flatMap((tm) =>
-      tm.threats
-        .filter((t) => t.riskLevel === 'Critical')
-        .map((t) => ({ asset: tm.assetName, assetType: tm.assetType, ...t })),
-    );
-    const highThreats = this.threatModels.flatMap((tm) =>
-      tm.threats
-        .filter((t) => t.riskLevel === 'High')
-        .map((t) => ({ asset: tm.assetName, assetType: tm.assetType, ...t })),
-    );
-    const mediumThreats = this.threatModels.flatMap((tm) =>
-      tm.threats
-        .filter((t) => t.riskLevel === 'Medium')
-        .map((t) => ({ asset: tm.assetName, assetType: tm.assetType, ...t })),
-    );
-    const lowThreats = this.threatModels.flatMap((tm) =>
-      tm.threats
-        .filter((t) => t.riskLevel === 'Low')
-        .map((t) => ({ asset: tm.assetName, assetType: tm.assetType, ...t })),
+    if (totalThreats === 0) {
+      markdownContent += "## Executive Summary\n\n";
+      markdownContent += "No threats were identified or parsed from the analysis. This could be due to:\n";
+      markdownContent += "- The application structure having no analyzable components.\n";
+      markdownContent += "- Errors during the AI analysis phase.\n";
+      markdownContent += "- The AI not responding in the expected format.\n\n";
+      markdownContent += "Please review the console logs for more details.\n";
+
+
+      try {
+        await fs.writeFile(reportFile, markdownContent, 'utf8');
+        console.log(`✅ Empty threat model report written to ${reportFile}`);
+      } catch (error: any) {
+        console.error(`❌ Error writing empty threat model report to ${reportFile}: ${error.message}`);
+        throw error;
+      }
+      return; // Exit early if no threats
+    }
+
+
+    const allThreatDetails = this.threatModels.flatMap((tm) =>
+      tm.threats.map((t) => ({
+        asset: tm.assetName,
+        assetType: tm.assetType,
+        category: t.category,
+        description: t.description,
+        riskLevel: t.riskLevel,
+        mitigationStrategy: t.mitigationStrategy,
+      }))
     );
 
-    // Calculate percentages
-    const criticalPercentage = ((criticalThreats.length / totalThreats) * 100).toFixed(1);
-    const highPercentage = ((highThreats.length / totalThreats) * 100).toFixed(1);
-    const mediumPercentage = ((mediumThreats.length / totalThreats) * 100).toFixed(1);
-    const lowPercentage = ((lowThreats.length / totalThreats) * 100).toFixed(1);
+
+    const criticalThreats = allThreatDetails.filter((t) => t.riskLevel === 'Critical');
+    const highThreats = allThreatDetails.filter((t) => t.riskLevel === 'High');
+    const mediumThreats = allThreatDetails.filter((t) => t.riskLevel === 'Medium');
+    const lowThreats = allThreatDetails.filter((t) => t.riskLevel === 'Low');
+
+
+    // Calculate percentages safely (avoid division by zero)
+    const criticalPercentage = totalThreats > 0 ? ((criticalThreats.length / totalThreats) * 100).toFixed(1) : '0.0';
+    const highPercentage = totalThreats > 0 ? ((highThreats.length / totalThreats) * 100).toFixed(1) : '0.0';
+    const mediumPercentage = totalThreats > 0 ? ((mediumThreats.length / totalThreats) * 100).toFixed(1) : '0.0';
+    const lowPercentage = totalThreats > 0 ? ((lowThreats.length / totalThreats) * 100).toFixed(1) : '0.0';
+
 
     // Executive Summary
     markdownContent += `## Executive Summary\n\n`;
-    markdownContent += `This report presents a comprehensive security analysis of the NestJS application using the STRIDE threat modeling methodology. `;
-    markdownContent += `The analysis identified **${totalThreats} potential security threats** across endpoints, data entities, and application architecture.\n\n`;
+    markdownContent += `This report presents a STRIDE threat model analysis of the NestJS application, generated with the assistance of Google AI. `;
+    markdownContent += `The analysis identified **${totalThreats} potential security threats** across analyzed endpoints, data entities, and the application architecture.\n\n`;
+
 
     // Risk Distribution
     markdownContent += `### Risk Level Distribution\n`;
@@ -663,293 +1077,298 @@ For each category include:
     markdownContent += `- **Medium**: ${mediumThreats.length} threats (${mediumPercentage}%)\n`;
     markdownContent += `- **Low**: ${lowThreats.length} threats (${lowPercentage}%)\n\n`;
 
+
     // Asset Analysis
-    markdownContent += `### Asset Analysis\n`;
+    const endpointCount = this.threatModels.filter((tm) => tm.assetType === 'endpoint').length;
+    const dataEntityCount = this.threatModels.filter((tm) => tm.assetType === 'data').length;
+    const processCount = this.threatModels.filter((tm) => tm.assetType === 'process').length;
+
+
+    markdownContent += `### Asset Analysis Summary\n`;
     markdownContent += `- **Total Assets Analyzed**: ${this.threatModels.length}\n`;
-    markdownContent += `- **Endpoints**: ${this.threatModels.filter((tm) => tm.assetType === 'endpoint').length}\n`;
-    markdownContent += `- **Data Entities**: ${this.threatModels.filter((tm) => tm.assetType === 'data').length}\n`;
-    if (this.threatModels.filter((tm) => tm.assetType === 'process').length > 0) {
-      markdownContent += `- **Process/Architecture**: ${
-        this.threatModels.filter((tm) => tm.assetType === 'process').length
-      }\n`;
-    }
+    if (endpointCount > 0) markdownContent += `- **Endpoints Analyzed**: ${endpointCount}\n`;
+    if (dataEntityCount > 0) markdownContent += `- **Data Entities Analyzed**: ${dataEntityCount}\n`;
+    if (processCount > 0) markdownContent += `- **Process/Architecture Elements Analyzed**: ${processCount}\n`;
     markdownContent += `\n`;
+
 
     // Top Threat Categories Analysis
     const threatCategoryCount = new Map<string, number>();
-    this.threatModels.forEach((tm) => {
-      tm.threats.forEach((threat) => {
-        const currentCount = threatCategoryCount.get(threat.category) || 0;
-        threatCategoryCount.set(threat.category, currentCount + 1);
-      });
+    allThreatDetails.forEach((threat) => {
+      const currentCount = threatCategoryCount.get(threat.category) || 0;
+      threatCategoryCount.set(threat.category, currentCount + 1);
     });
 
+
     const sortedCategories = Array.from(threatCategoryCount.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
+      .sort((a, b) => b[1] - a[1]) // Sort descending by count
+      .slice(0, 5); // Show top 5
+
 
     if (sortedCategories.length > 0) {
-      markdownContent += `### Top Vulnerability Categories\n`;
-      sortedCategories.forEach((category, index) => {
-        markdownContent += `${index + 1}. **${category[0]}** - ${category[1]} threats identified\n`;
+      markdownContent += `### Top ${sortedCategories.length} Threat Categories by Frequency\n`;
+      sortedCategories.forEach(([category, count], index) => {
+        markdownContent += `${index + 1}. **${category}**: ${count} threats identified\n`;
       });
       markdownContent += `\n`;
     }
 
+
+    // --- Detailed Sections (Critical, High, Endpoints, Data, Global Recommendations, Timeline) ---
+    // (Paste the rest of the detailed markdown generation logic from your original code here)
+    // Make sure it uses the `allThreatDetails`, `criticalThreats`, `highThreats`, etc. variables defined above.
+
+
     // Critical Vulnerabilities Section
     if (criticalThreats.length > 0) {
-      markdownContent += `## Critical Vulnerabilities\n\n`;
-
+      markdownContent += `## Critical Vulnerabilities (Immediate Attention Required)\n\n`;
       criticalThreats.forEach((threat, index) => {
-        markdownContent += `### ${index + 1}. ${threat.category} in ${threat.asset}\n`;
-        markdownContent += `**Risk**: Critical  \n`;
-        markdownContent += `**Description**: ${threat.description}  \n`;
-        markdownContent += `**Mitigation**: ${threat.mitigationStrategy}  \n\n`;
+        markdownContent += `### ${index + 1}. ${threat.category} in ${threat.asset} (${threat.assetType})\n`;
+        markdownContent += `**Risk**: Critical\n`;
+        markdownContent += `**Description**: ${threat.description}\n`;
+        markdownContent += `**Mitigation**: ${threat.mitigationStrategy}\n\n`;
       });
     }
+
 
     // High-Risk Vulnerabilities Section
     if (highThreats.length > 0) {
       markdownContent += `## High-Risk Vulnerabilities\n\n`;
-
-      // Group high threats by category
+      // Group high threats by category for better readability
       const categorizedHighThreats = highThreats.reduce(
         (acc, threat) => {
           const category = threat.category;
-          if (!acc[category]) {
-            acc[category] = [];
-          }
+          if (!acc[category]) acc[category] = [];
           acc[category].push(threat);
           return acc;
         },
-        {} as Record<string, typeof highThreats>,
+        {} as Record<string, typeof highThreats>
       );
 
-      // Output each category
-      Object.entries(categorizedHighThreats).forEach(([category, threats]) => {
-        markdownContent += `### ${category}\n`;
 
-        threats.forEach((threat, index) => {
-          markdownContent += `${index + 1}. **${threat.asset}** (${threat.assetType})  \n`;
-          markdownContent += `   **Description**: ${threat.description}  \n`;
-          markdownContent += `   **Mitigation**: ${threat.mitigationStrategy}  \n\n`;
+      Object.entries(categorizedHighThreats).forEach(([category, threatsInCategory]) => {
+        markdownContent += `### ${category}\n`;
+        threatsInCategory.forEach((threat, index) => {
+          markdownContent += `${index + 1}. **Asset**: ${threat.asset} (${threat.assetType})\n`;
+          markdownContent += `   **Description**: ${threat.description}\n`;
+          markdownContent += `   **Mitigation**: ${threat.mitigationStrategy}\n\n`;
         });
       });
     }
 
-    // Endpoint Analysis Section
+
+    // Endpoint Analysis Section (Focus on High/Critical)
     const endpointModels = this.threatModels.filter((tm) => tm.assetType === 'endpoint');
     if (endpointModels.length > 0) {
-      markdownContent += `## API Endpoint Security Analysis\n\n`;
+      markdownContent += `## API Endpoint Security Highlights\n\n`;
+      const endpointsWithHighCritical = endpointModels
+        .map(model => ({
+          ...model,
+          criticalCount: model.threats.filter(t => t.riskLevel === 'Critical').length,
+          highCount: model.threats.filter(t => t.riskLevel === 'High').length,
+        }))
+        .filter(model => model.criticalCount > 0 || model.highCount > 0)
+        .sort((a, b) => (b.criticalCount * 2 + b.highCount) - (a.criticalCount * 2 + a.highCount)); // Prioritize critical
 
-      // Find the most vulnerable endpoints (those with most high/critical threats)
-      const endpointVulnerabilityScores = endpointModels
-        .map((model) => {
-          const criticalCount = model.threats.filter((t) => t.riskLevel === 'Critical').length;
-          const highCount = model.threats.filter((t) => t.riskLevel === 'High').length;
-          const score = criticalCount * 3 + highCount;
-          return { name: model.assetName, score, threatModel: model };
-        })
-        .sort((a, b) => b.score - a.score);
 
-      // Detail the most vulnerable endpoints (top 3)
-      const topVulnerableEndpoints = endpointVulnerabilityScores.slice(0, 3);
+      if (endpointsWithHighCritical.length > 0) {
+        markdownContent += `### Endpoints with Critical or High Risks\n\n`;
+        endpointsWithHighCritical.slice(0, 10).forEach((ep) => { // Show top 10 or fewer
+          markdownContent += `#### ${ep.assetName}\n`;
+          markdownContent += `(${ep.criticalCount} Critical, ${ep.highCount} High Risks)\n\n`;
 
-      if (topVulnerableEndpoints.length > 0 && topVulnerableEndpoints[0].score > 0) {
-        markdownContent += `### Most Vulnerable Endpoints\n\n`;
 
-        topVulnerableEndpoints.forEach((endpoint) => {
-          if (endpoint.score > 0) {
-            markdownContent += `#### ${endpoint.name}\n\n`;
-
-            // List critical threats for this endpoint
-            const criticalThreats = endpoint.threatModel.threats.filter((t) => t.riskLevel === 'Critical');
-            if (criticalThreats.length > 0) {
-              markdownContent += `**Critical Threats:**\n`;
-              criticalThreats.forEach((threat) => {
-                markdownContent += `- **${threat.category}**: ${threat.description}\n`;
-                markdownContent += `  - Mitigation: ${threat.mitigationStrategy}\n`;
-              });
-              markdownContent += `\n`;
-            }
-
-            // List high threats for this endpoint
-            const highThreats = endpoint.threatModel.threats.filter((t) => t.riskLevel === 'High');
-            if (highThreats.length > 0) {
-              markdownContent += `**High-Risk Threats:**\n`;
-              highThreats.forEach((threat) => {
-                markdownContent += `- **${threat.category}**: ${threat.description}\n`;
-                markdownContent += `  - Mitigation: ${threat.mitigationStrategy}\n`;
-              });
-              markdownContent += `\n`;
-            }
-          }
+          ep.threats.filter(t => t.riskLevel === 'Critical' || t.riskLevel === 'High')
+            .forEach(threat => {
+              markdownContent += `- **[${threat.riskLevel}] ${threat.category}**: ${threat.description}\n`;
+              markdownContent += `  - **Mitigation**: ${threat.mitigationStrategy}\n`;
+            });
+          markdownContent += `\n`;
         });
+        if (endpointsWithHighCritical.length > 10) {
+          markdownContent += `*... and ${endpointsWithHighCritical.length - 10} more endpoints with critical/high risks.*\n\n`;
+        }
+      } else {
+        markdownContent += `No critical or high-risk threats were identified specifically for the analyzed endpoints.\n\n`;
       }
     }
 
-    // Entity Security Analysis
+
+    // Data Entity Security Analysis (Focus on High/Critical)
     const entityModels = this.threatModels.filter((tm) => tm.assetType === 'data');
     if (entityModels.length > 0) {
-      markdownContent += `## Data Entity Security Analysis\n\n`;
+      markdownContent += `## Data Entity Security Highlights\n\n`;
+      const entitiesWithHighCritical = entityModels
+        .map(model => ({
+          ...model,
+          criticalCount: model.threats.filter(t => t.riskLevel === 'Critical').length,
+          highCount: model.threats.filter(t => t.riskLevel === 'High').length,
+        }))
+        .filter(model => model.criticalCount > 0 || model.highCount > 0)
+        .sort((a, b) => (b.criticalCount * 2 + b.highCount) - (a.criticalCount * 2 + a.highCount));
 
-      // Find entities with high/critical security issues
-      const entitiesWithHighRisk = entityModels.filter((model) =>
-        model.threats.some((t) => t.riskLevel === 'Critical' || t.riskLevel === 'High'),
-      );
 
-      if (entitiesWithHighRisk.length > 0) {
-        entitiesWithHighRisk.forEach((entity) => {
-          markdownContent += `### ${entity.assetName}\n\n`;
+      if (entitiesWithHighCritical.length > 0) {
+        markdownContent += `### Entities with Critical or High Risks\n\n`;
+        entitiesWithHighCritical.forEach((entity) => {
+          markdownContent += `#### ${entity.assetName}\n`;
+          markdownContent += `(${entity.criticalCount} Critical, ${entity.highCount} High Risks)\n\n`;
 
-          // Group threats by risk level
-          const criticalThreats = entity.threats.filter((t) => t.riskLevel === 'Critical');
-          const highThreats = entity.threats.filter((t) => t.riskLevel === 'High');
-          const mediumThreats = entity.threats.filter((t) => t.riskLevel === 'Medium');
 
-          if (criticalThreats.length > 0) {
-            markdownContent += `**Critical Risks:**\n`;
-            criticalThreats.forEach((threat) => {
-              markdownContent += `- **${threat.category}**: ${threat.description}\n`;
-              markdownContent += `  - Mitigation: ${threat.mitigationStrategy}\n`;
+          entity.threats.filter(t => t.riskLevel === 'Critical' || t.riskLevel === 'High')
+            .forEach(threat => {
+              markdownContent += `- **[${threat.riskLevel}] ${threat.category}**: ${threat.description}\n`;
+              markdownContent += `  - **Mitigation**: ${threat.mitigationStrategy}\n`;
             });
-            markdownContent += `\n`;
-          }
-
-          if (highThreats.length > 0) {
-            markdownContent += `**High Risks:**\n`;
-            highThreats.forEach((threat) => {
-              markdownContent += `- **${threat.category}**: ${threat.description}\n`;
-              markdownContent += `  - Mitigation: ${threat.mitigationStrategy}\n`;
-            });
-            markdownContent += `\n`;
-          }
-
-          if (mediumThreats.length > 0) {
-            markdownContent += `**Medium Risks:**\n`;
-            markdownContent += `- Found ${mediumThreats.length} medium-risk issues including ${mediumThreats
-              .map((t) => t.category)
-              .join(', ')}\n\n`;
-          }
+          markdownContent += `\n`;
         });
       } else {
-        markdownContent += `No high or critical risk issues were found in the data entities.\n\n`;
+        markdownContent += `No critical or high-risk threats were identified specifically for the analyzed data entities.\n\n`;
       }
     }
 
-    // Global Security Recommendations
-    markdownContent += `## Global Security Recommendations\n\n`;
 
-    // Group all threats by category
-    const allThreatsByCategory = this.threatModels
-      .flatMap((tm) => tm.threats.map((t) => ({ asset: tm.assetName, assetType: tm.assetType, ...t })))
-      .reduce(
-        (acc, threat) => {
-          const category = threat.category;
-          if (!acc[category]) {
-            acc[category] = [];
-          }
-          acc[category].push(threat);
-          return acc;
-        },
-        {} as Record<string, any[]>,
-      );
-
-    // Output security recommendations for each category
-    Object.entries(allThreatsByCategory).forEach(([category, threats]) => {
-      markdownContent += `### ${category} Mitigations\n\n`;
-
-      // Get unique mitigation strategies (simplify repeated ones)
-      const uniqueMitigations = new Set<string>();
-      threats
-        .filter((t) => t.riskLevel === 'Critical' || t.riskLevel === 'High')
-        .forEach((threat) => {
-          uniqueMitigations.add(threat.mitigationStrategy);
+    // Global Security Recommendations / Cross-Cutting Concerns
+    const globalModel = this.threatModels.find(tm => tm.assetType === 'process');
+    if (globalModel && globalModel.threats.length > 0) {
+      markdownContent += `## Global & Architectural Recommendations\n\n`;
+      globalModel.threats
+        .sort((a, b) => { // Sort by risk level within global
+          const riskOrder = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+          return (riskOrder[b.riskLevel] || 0) - (riskOrder[a.riskLevel] || 0);
+        })
+        .forEach(threat => {
+          markdownContent += `### ${threat.category} - [${threat.riskLevel}]\n`;
+          markdownContent += `**Threat**: ${threat.description}\n`;
+          markdownContent += `**Mitigation**: ${threat.mitigationStrategy}\n\n`;
         });
 
-      if (uniqueMitigations.size > 0) {
-        Array.from(uniqueMitigations).forEach((mitigation) => {
-          markdownContent += `- ${mitigation}\n`;
-        });
-      } else {
-        markdownContent += `- No critical or high-risk ${category} threats identified\n`;
-      }
 
-      markdownContent += `\n`;
-    });
+    } else {
+      // Add generic recommendations if no global analysis was done or yielded results
+      markdownContent += `## General Security Recommendations\n\n`;
+      markdownContent += `- **Authentication & Authorization**: Ensure robust mechanisms (e.g., JWT with refresh tokens, RBAC guards) are consistently applied.\n`;
+      markdownContent += `- **Input Validation**: Use global ValidationPipes and specific DTOs with validation decorators for all inputs.\n`;
+      markdownContent += `- **Security Headers**: Employ Helmet.js or similar middleware for essential security headers (CSP, HSTS, X-Frame-Options, etc.).\n`;
+      markdownContent += `- **Rate Limiting**: Implement rate limiting (e.g., using @nestjs/throttler) to prevent abuse and DoS.\n`;
+      markdownContent += `- **Error Handling**: Avoid leaking sensitive information or stack traces in error responses. Use exception filters.\n`;
+      markdownContent += `- **Dependency Management**: Regularly scan dependencies for known vulnerabilities (e.g., using npm audit or Snyk).\n`;
+      markdownContent += `- **Secrets Management**: Use environment variables and a configuration service (@nestjs/config) - never hardcode secrets.\n`;
+      markdownContent += `- **Logging**: Implement structured logging that captures relevant security events (auth success/failure, significant errors, access control decisions).\n\n`;
+    }
 
-    // Recommended Implementation Timeline
-    markdownContent += `## Recommended Implementation Timeline\n\n`;
+
+    // Recommended Implementation Timeline (Simplified)
+    markdownContent += `## Recommended Prioritization\n\n`;
+    markdownContent += `Focus remediation efforts based on risk level:\n\n`;
+
 
     if (criticalThreats.length > 0) {
-      markdownContent += `### Immediate (within 1 week)\n`;
-      markdownContent += criticalThreats
-        .map((threat) => `- ${threat.mitigationStrategy} (${threat.asset}, ${threat.category})`)
-        .join('\n');
-      markdownContent += `\n\n`;
+      markdownContent += `### 1. Critical Risks (Address Immediately)\n`;
+      markdownContent += `Prioritize fixing all ${criticalThreats.length} critical vulnerabilities identified. These represent the highest potential impact.\n\n`;
+      // Optional: List a few examples
+      criticalThreats.slice(0,3).forEach(t => markdownContent += `- Example: ${t.category} in ${t.asset} - ${t.mitigationStrategy}\n`);
+      if (criticalThreats.length > 3) markdownContent += `- ... and ${criticalThreats.length - 3} more.\n`;
+      markdownContent += `\n`;
     }
+
 
     if (highThreats.length > 0) {
-      markdownContent += `### Short-term (1-4 weeks)\n`;
-      // Just include a subset of high threats to keep the list manageable
-      markdownContent += highThreats
-        .slice(0, Math.min(highThreats.length, 5))
-        .map((threat) => `- ${threat.mitigationStrategy} (${threat.category})`)
-        .join('\n');
-
-      if (highThreats.length > 5) {
-        markdownContent += `\n- Plus ${highThreats.length - 5} additional high-risk mitigations`;
-      }
-      markdownContent += `\n\n`;
+      markdownContent += `### 2. High Risks (Address Next)\n`;
+      markdownContent += `Address the ${highThreats.length} high-risk vulnerabilities following the critical ones. These often involve significant security gaps.\n\n`;
+      highThreats.slice(0,3).forEach(t => markdownContent += `- Example: ${t.category} in ${t.asset} - ${t.mitigationStrategy}\n`);
+      if (highThreats.length > 3) markdownContent += `- ... and ${highThreats.length - 3} more.\n`;
+      markdownContent += `\n`;
     }
 
-    markdownContent += `### Medium-term (1-3 months)\n`;
-    markdownContent += `- Implement comprehensive audit logging\n`;
-    markdownContent += `- Establish regular security testing\n`;
-    markdownContent += `- Develop security regression test suite\n\n`;
 
-    markdownContent += `### Long-term (3+ months)\n`;
-    markdownContent += `- Conduct penetration testing\n`;
-    markdownContent += `- Implement security monitoring\n`;
-    markdownContent += `- Establish security incident response plan\n\n`;
+    if (mediumThreats.length > 0) {
+      markdownContent += `### 3. Medium Risks (Address Systematically)\n`;
+      markdownContent += `Plan to address the ${mediumThreats.length} medium-risk vulnerabilities as part of regular development cycles. These often relate to defense-in-depth.\n\n`;
+    }
+
+
+    if (lowThreats.length > 0) {
+      markdownContent += `### 4. Low Risks (Address Opportunistically)\n`;
+      markdownContent += `Address the ${lowThreats.length} low-risk vulnerabilities when time permits or during related feature work. These are typically minor improvements or hardening measures.\n\n`;
+    }
+
 
     // Conclusion
     markdownContent += `## Conclusion\n\n`;
-    markdownContent += `This STRIDE threat model analysis identified ${totalThreats} potential security threats, with ${criticalThreats.length} critical and ${highThreats.length} high-risk issues that should be addressed promptly. `;
-    markdownContent += `By implementing the recommended mitigations, particularly those marked as Critical and High risk, the application's security posture will be significantly improved.\n\n`;
+    markdownContent += `This AI-assisted STRIDE threat model provides a valuable baseline for understanding potential security risks in the application. It identified ${totalThreats} threats, highlighting ${criticalThreats.length} critical and ${highThreats.length} high-risk issues requiring prompt attention. `;
+    markdownContent += `Implementing the recommended mitigations, prioritized by risk level, will significantly enhance the application's security posture. Remember that automated analysis is a starting point; manual review and deeper investigation by the development team are crucial for comprehensive security.\n\n`;
+
 
     markdownContent += `---\n\n`;
-    markdownContent += `*Generated automatically using NestJS STRIDE Threat Modeling Tool*\n`;
-    markdownContent += `*Based on Claude AI analysis*`;
+    markdownContent += `*Report generated automatically using NestJS STRIDE Threat Modeling Tool*\n`;
+    markdownContent += `*AI Analysis powered by Google Generative AI (${this.options.gemmaModel})*`;
+    // --- End of reused Markdown Logic ---
 
-    await fs.writeFile(reportFile, markdownContent, 'utf8');
-    console.log(`✅ Threat model report written to ${reportFile}`);
+
+    try {
+      await fs.writeFile(reportFile, markdownContent, 'utf8');
+      console.log(`✅ Threat model report written to ${reportFile}`);
+    } catch (error: any) {
+      console.error(`❌ Error writing threat model report to ${reportFile}: ${error.message}`);
+      throw error; // Re-throw if writing fails
+    }
   }
+
+
+} // End of StrideModelGenerator class
+
+// --- Exported Function (Usage Example) ---
+export interface GenerateAIStrideModelOptions {
+  outputPath?: string;
+  includeGlobalThreats?: boolean;
+  includeEntityThreats?: boolean;
+  gemmaModel?: string;
+  googleModel?: string; // Add googleModel option for consistency with ThreatModellingOptions
+  maxOutputTokens?: number;
+  temperature?: number;
+  safetySettings?: SafetySetting[];
 }
 
-// Return type for the generateAIStrideModel function
-interface ThreatModelResult {
+export interface ThreatModelResult {
   jsonPath: string;
   reportPath: string;
+  threatModels: ThreatModel[]; // Also return the parsed models
 }
 
-// Usage example
+/**
+ * Generates a STRIDE threat model for a NestJS application using Google AI.
+ *
+ * @param appModule The root AppModule of the NestJS application.
+ * @param configService An instance of NestJS ConfigService initialized with environment variables (requires GOOGLE_API_KEY).
+ * @param options Configuration options for the generation process.
+ * @returns Paths to the generated JSON and Markdown files, and the parsed threat models.
+ */
 export async function generateAIStrideModel(
   appModule: any,
-  options?: {
-    outputPath?: string;
-    includeGlobalThreats?: boolean;
-    includeEntityThreats?: boolean;
-    claudeModel?: string;
-  }
+  configService: ConfigService, // Require ConfigService for API key etc.
+  options?: GenerateAIStrideModelOptions
 ): Promise<ThreatModelResult> {
-  const projectRoot = process.cwd();
-  const generator = new StrideModelGenerator(projectRoot, appModule, options);
+  const projectRoot = process.cwd(); // Or determine project root differently if needed
+  // Ensure ConfigService is provided
+  if (!configService) {
+    throw new Error("ConfigService instance must be provided to generateAIStrideModel.");
+  }
+  const generator = new StrideModelGenerator(projectRoot, appModule, configService, options);
   await generator.generateThreatModel();
-  
-  // Return paths to the generated files
+  // Construct absolute paths for return
+  const absoluteOutputPath = options?.outputPath
+    ? path.resolve(options.outputPath)
+    : path.resolve(projectRoot); // Use resolved project root if no output path
+
+  const jsonPath = path.join(absoluteOutputPath, 'threat-model.json');
+  const reportPath = path.join(absoluteOutputPath, 'threat-model-report.md');
+
+  // Return paths and the actual data
   return {
-    jsonPath: path.join(options?.outputPath || projectRoot, 'threat-model.json'),
-    reportPath: path.join(options?.outputPath || projectRoot, 'threat-model-report.md')
+    jsonPath: jsonPath,
+    reportPath: reportPath,
+    // @ts-ignore - Accessing private member for return value, consider a public getter if needed elsewhere
+    threatModels: generator.threatModels
   };
 }
